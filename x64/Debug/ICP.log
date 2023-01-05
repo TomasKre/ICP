@@ -1,0 +1,3 @@
+﻿  ICP.cpp
+C:\Users\tomas\source\repos\ICP\ICP\ICP.cpp(338,1): warning C4102: cv: neodkazovaná jmenovka
+C:\Users\tomas\source\repos\ICP\ICP\ICP.cpp(372,29): warning C4244: inicializování: double se převádí na unsigned char; může dojít ke ztrátě dat.
