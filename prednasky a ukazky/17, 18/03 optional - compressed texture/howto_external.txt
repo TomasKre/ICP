@@ -1,0 +1,45 @@
+Howto - simple way :-)
+
+Use common texture format - usually DDS (Direct3D) or KTX (Khronos TeXture format - designed for OpenGL).
+Use some library to avoid writing your own binary parser, eg. Khronos KTX
+https://github.com/KhronosGroup/KTX-Software
+
+Example using KTX Khronos Library:
+
+#define TEXTURE_FILE "../../../test images/up-reference.ktx"
+
+GLuint texture = 0;
+GLenum target;
+GLenum glerror;
+GLboolean isMipmapped;
+KTX_error_code ktxerror;
+
+ktxerror = ktxLoadTextureN(TEXTURE_FILE, &texture, &target, NULL, &isMipmapped, &glerror, 0, NULL);
+
+if (KTX_SUCCESS == ktxerror) {
+    glEnable(target);
+
+    if (isMipmapped) 
+        /* Enable bilinear mipmapping */
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    else
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+}
+
+===============================================================================
+Howto manually:
+
+1) check, if compressed format is available
+   glewIsSupported("YOUR_FAVORITE_FORMAT")
+
+2) read binary file. You must write your own binary parser.
+    
+3) load binary blob to GPU with proper settings
+
+Compare headers for uncompressed vs. compressed: data type vs. binary blob
+
+void glTexImage2D          (GLenum target, GLint level, GLint  internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid * data);
+void glCompressedTexImage2D(GLenum target, GLint level, GLenum internalFormat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize,          const GLvoid *data);
+           

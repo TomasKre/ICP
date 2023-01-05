@@ -1,0 +1,15 @@
+===== Log started at 2022-09-13, 14:15:29. =====
+
+14:15:29  Main window is created.
+14:15:29  Created a rendering thread for OpenGL.
+14:15:29  Changed OpenGL rendering window size: 296x596.
+14:15:29  OpenGL child window is created.
+14:15:29  Initialized OpenGL states.
+14:15:29  Entering OpenGL rendering thread...
+14:15:29  OpenGL form dialog is created.
+14:15:29  Changed OpenGL rendering window size: 256x516.
+14:15:32  Changed OpenGL rendering window size: 1926x1393.
+14:16:23  Exit OpenGL rendering thread.
+
+
+===== END OF LOG =====
