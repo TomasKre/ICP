@@ -44,7 +44,8 @@ struct vertex {
 	glm::vec3 color; // Color
 };
 
-bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, unsigned int red, unsigned int green, unsigned int blue, float scale, glm::vec3 coords);
+GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices);
+bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, float color[3], float scale[3], glm::vec3 coords);
 
 glm::vec3 check_collision(float x, float z);
 
@@ -193,146 +194,31 @@ int main()
 		}
 	}
 
-	GLuint VAO1;
-	{
-		GLuint VBO, EBO;
-
-		// Generate the VAO and VBO
-		glGenVertexArrays(1, &VAO1);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
-		// Bind VAO (set as the current)
-		glBindVertexArray(VAO1);
-		// Bind the VBO, set type as GL_ARRAY_BUFFER
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		// Fill-in data into the VBO
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vertex), vertices.data(), GL_STATIC_DRAW);
-		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		// Fill-in data into the EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
-		// Enable the Vertex Attribute 0 = position
-		glEnableVertexAttribArray(0);
-		// Set end enable Vertex Attribute 1 = Texture Coordinates
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
-		glEnableVertexAttribArray(1);
-		// Bind VBO and VAO to 0 to prevent unintended modification
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
-
+	GLuint VAO1 = va_setup(vertices, indices);
 	
 	std::vector<vertex> vertices2;
 	std::vector <GLuint> indices2;
-	loadOBJ("obj/teapot_tri_vnt.obj", vertices2, indices2, 1, 0, 0, 0.1, glm::vec3 (7, 3, 7));
+	float color[3] = { 1, 0.1, 0.1 };
+	float scale[3] = { 0.1, 0.1, 0.1 };
+	loadOBJ("obj/teapot.obj", vertices2, indices2, color, scale, glm::vec3(7, 3, 7));
 
-	GLuint VAO2;
-	{
-		GLuint VBO, EBO;
-
-		// Generate the VAO and VBO
-		glGenVertexArrays(1, &VAO2);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
-		// Bind VAO (set as the current)
-		glBindVertexArray(VAO2);
-		// Bind the VBO, set type as GL_ARRAY_BUFFER
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		// Fill-in data into the VBO
-		glBufferData(GL_ARRAY_BUFFER, vertices2.size() * sizeof(vertex), vertices2.data(), GL_STATIC_DRAW);
-		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		// Fill-in data into the EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices2.size() * sizeof(GLuint), indices2.data(), GL_STATIC_DRAW);
-		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
-		// Enable the Vertex Attribute 0 = position
-		glEnableVertexAttribArray(0);
-		// Set end enable Vertex Attribute 1 = Texture Coordinates
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
-		glEnableVertexAttribArray(1);
-
-		// Bind VBO and VAO to 0 to prevent unintended modification
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
+	GLuint VAO2 = va_setup(vertices2, indices2);
 
 	std::vector<vertex> vertices3;
 	std::vector <GLuint> indices3;
-	//TODO nevim proc tam jsou cerny trojuhelniky
-	loadOBJ("obj/sphere_tri_vnt.obj", vertices3, indices3, 1, 1, 1, 10, glm::vec3(0, 50, 150));
+	float color2[3] = { 1, 1, 1 };
+	float scale2[3] = { 2, 2, 2 };
+	loadOBJ("obj/sphere.obj", vertices3, indices3, color2, scale2, glm::vec3(-20, 15, -20));
 
-	GLuint VAO3;
-	{
-		GLuint VBO, EBO;
-
-		// Generate the VAO and VBO
-		glGenVertexArrays(1, &VAO3);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
-		// Bind VAO (set as the current)
-		glBindVertexArray(VAO3);
-		// Bind the VBO, set type as GL_ARRAY_BUFFER
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		// Fill-in data into the VBO
-		glBufferData(GL_ARRAY_BUFFER, vertices3.size() * sizeof(vertex), vertices3.data(), GL_STATIC_DRAW);
-		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		// Fill-in data into the EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices3.size() * sizeof(GLuint), indices3.data(), GL_STATIC_DRAW);
-		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
-		// Enable the Vertex Attribute 0 = position
-		glEnableVertexAttribArray(0);
-		// Set end enable Vertex Attribute 1 = Texture Coordinates
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
-		glEnableVertexAttribArray(1);
-
-		// Bind VBO and VAO to 0 to prevent unintended modification
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
+	GLuint VAO3 = va_setup(vertices3, indices3);
 
 	std::vector<vertex> vertices4;
 	std::vector <GLuint> indices4;
-	loadOBJ("obj/cube_triangles_normals_tex.obj", vertices4, indices4, 0, 0, 1, 1, glm::vec3(0, 5, 0));
+	float color3[3] = { 0, 0.3, 1 };
+	float scale3[3] = { 1, 1, 4 };
+	loadOBJ("obj/cube.obj", vertices4, indices4, color3, scale3, glm::vec3(0, -0.5, 0));
 
-	GLuint VAO4;
-	{
-		GLuint VBO, EBO;
-
-		// Generate the VAO and VBO
-		glGenVertexArrays(1, &VAO4);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
-		// Bind VAO (set as the current)
-		glBindVertexArray(VAO4);
-		// Bind the VBO, set type as GL_ARRAY_BUFFER
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		// Fill-in data into the VBO
-		glBufferData(GL_ARRAY_BUFFER, vertices4.size() * sizeof(vertex), vertices4.data(), GL_STATIC_DRAW);
-		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		// Fill-in data into the EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices4.size() * sizeof(GLuint), indices4.data(), GL_STATIC_DRAW);
-		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
-		// Enable the Vertex Attribute 0 = position
-		glEnableVertexAttribArray(0);
-		// Set end enable Vertex Attribute 1 = Texture Coordinates
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
-		glEnableVertexAttribArray(1);
-
-		// Bind VBO and VAO to 0 to prevent unintended modification
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
+	GLuint VAO4 = va_setup(vertices4, indices4);
 
 	glfwSetCursorPosCallback(globals.window, cursor_position_callback);
 	glfwSetScrollCallback(globals.window, scroll_callback);
@@ -724,8 +610,41 @@ std::string getProgramInfoLog(const GLuint obj) {
 	return s;
 }
 
-bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, unsigned int red, unsigned int green, unsigned int blue, float scale, glm::vec3 coords)
-{
+GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices) {
+	GLuint VAO;
+	{
+		GLuint VBO, EBO;
+
+		// Generate the VAO and VBO
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &EBO);
+		// Bind VAO (set as the current)
+		glBindVertexArray(VAO);
+		// Bind the VBO, set type as GL_ARRAY_BUFFER
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		// Fill-in data into the VBO
+		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vertex), vertices.data(), GL_STATIC_DRAW);
+		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		// Fill-in data into the EBO
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
+		// Enable the Vertex Attribute 0 = position
+		glEnableVertexAttribArray(0);
+		// Set end enable Vertex Attribute 1 = Texture Coordinates
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
+		glEnableVertexAttribArray(1);
+		// Bind VBO and VAO to 0 to prevent unintended modification
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+	return VAO;
+}
+
+bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, float color[3], float scale[3], glm::vec3 coords) {
 	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
 	std::vector< glm::vec3 > temp_vertices;
 	std::vector< glm::vec2 > temp_uvs;
@@ -788,8 +707,8 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
 
 	for (unsigned int u = 0; u < vertexIndices.size(); u++) {
 		unsigned int vertexIndex = vertexIndices[u];
-		glm::vec3 vertex = coords + (temp_vertices[vertexIndex - 1] * glm::vec3 (scale, scale, scale));
-		out_vertices.push_back({ vertex, { red, green, blue } });
+		glm::vec3 vertex = coords + (temp_vertices[vertexIndex - 1] * glm::vec3 (scale[0], scale[1], scale[2]));
+		out_vertices.push_back({ vertex, { color[0], color[1], color[2]}});
 	}
 
 	fclose(file);
