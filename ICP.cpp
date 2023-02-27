@@ -45,7 +45,7 @@ struct vertex {
 };
 
 GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices);
-bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, float color[3], float scale[3], glm::vec3 coords);
+bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords);
 
 glm::vec3 check_collision(float x, float z);
 
@@ -198,24 +198,24 @@ int main()
 	
 	std::vector<vertex> vertices2;
 	std::vector <GLuint> indices2;
-	float color[3] = { 1, 0.1, 0.1 };
-	float scale[3] = { 0.1, 0.1, 0.1 };
+	glm::vec3 color = { 1, 0.1, 0.1 };
+	glm::vec3 scale = { 0.1, 0.1, 0.1 };
 	loadOBJ("obj/teapot.obj", vertices2, indices2, color, scale, glm::vec3(7, 3, 7));
 
 	GLuint VAO2 = va_setup(vertices2, indices2);
 
 	std::vector<vertex> vertices3;
 	std::vector <GLuint> indices3;
-	float color2[3] = { 1, 1, 1 };
-	float scale2[3] = { 2, 2, 2 };
+	glm::vec3 color2 = { 1, 1, 1 };
+	glm::vec3 scale2 = { 2, 2, 2 };
 	loadOBJ("obj/sphere.obj", vertices3, indices3, color2, scale2, glm::vec3(-20, 15, -20));
 
 	GLuint VAO3 = va_setup(vertices3, indices3);
 
 	std::vector<vertex> vertices4;
 	std::vector <GLuint> indices4;
-	float color3[3] = { 0, 0.3, 1 };
-	float scale3[3] = { 1, 1, 4 };
+	glm::vec3 color3 = { 0, 0.3, 1 };
+	glm::vec3 scale3 = { 1, 1, 4 };
 	loadOBJ("obj/cube.obj", vertices4, indices4, color3, scale3, glm::vec3(0, -0.5, 0));
 
 	GLuint VAO4 = va_setup(vertices4, indices4);
@@ -644,7 +644,7 @@ GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices) {
 	return VAO;
 }
 
-bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, float color[3], float scale[3], glm::vec3 coords) {
+bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords) {
 	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
 	std::vector< glm::vec3 > temp_vertices;
 	std::vector< glm::vec2 > temp_uvs;
@@ -707,10 +707,52 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
 
 	for (unsigned int u = 0; u < vertexIndices.size(); u++) {
 		unsigned int vertexIndex = vertexIndices[u];
-		glm::vec3 vertex = coords + (temp_vertices[vertexIndex - 1] * glm::vec3 (scale[0], scale[1], scale[2]));
-		out_vertices.push_back({ vertex, { color[0], color[1], color[2]}});
+		glm::vec3 vertex = coords + (temp_vertices[vertexIndex - 1] * scale);
+		out_vertices.push_back({ vertex, color });
 	}
 
 	fclose(file);
 	return true;
+}
+
+GLuint gen_tex(std::string filepath)
+{
+	GLuint ID;
+	cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED); // Read with (potential) Alpha
+	if (image.channels() != 4) exit(-1);  // Check the image, we want Alpha in this example    
+
+	// Generates an OpenGL texture object
+	glGenTextures(1, &ID);
+
+	// Assigns the texture to a Texture Unit
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, ID);
+
+	// Texture data alignment for transfer (single byte = basic, slow, but safe option; usually not necessary) 
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// Assigns the image to the OpenGL Texture object
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.cols, image.rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, image.data);
+
+	// Configures the type of algorithm that is used to make the image smaller or bigger
+	// nearest neighbor - ugly & fast 
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);  
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	// bilinear - nicer & slower
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// MIPMAP filtering + automatic MIPMAP generation - nicest, needs more memory. Notice: MIPMAP is only for image minifying.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // bilinear magnifying
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // trilinear minifying
+	glGenerateMipmap(GL_TEXTURE_2D);  //Generate mipmaps now.
+
+	// Configures the way the texture repeats
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	// Unbinds the OpenGL Texture object so that it can't accidentally be modified
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return ID;
 }
