@@ -44,7 +44,7 @@ struct vertex {
 	glm::vec3 color; // Color
 };
 
-GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices);
+void va_setup(int index);
 bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords);
 GLuint gen_tex(std::string filepath);
 
@@ -90,6 +90,15 @@ GLfloat Roll = 0.0f;
 GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
+
+const int n_objects = 4;
+GLuint VAO[n_objects];
+GLuint VBO[n_objects];
+GLuint EBO[n_objects];
+std::vector<vertex> vertex_array[n_objects];
+std::vector <GLuint> indices_array[n_objects];
+glm::vec3 colors[n_objects];
+glm::vec3 scales[n_objects];
 
 int main()
 {
@@ -143,8 +152,6 @@ int main()
 	glUseProgram(prog_h);
 
 	// 20x20 floor
-	std::vector<vertex> vertices;
-	std::vector<GLuint> indices;
 	float y = 0.0f;
 	float r = 1.0f;
 	float g = 0.0f;
@@ -157,15 +164,15 @@ int main()
 		for (float z = -10.0; z < 10.0; z++)
 		{
 
-			vertices.push_back({ { x, y, z }, { r, g, b } });
-			vertices.push_back({ { x, y, z + 1}, { r, g, b } });
-			vertices.push_back({ { x + 1, y, z }, { r, g, b } });
-			vertices.push_back({ { x + 1, y, z + 1}, { r, g, b } });
-			vertices.push_back({ { x + 1, y, z }, { r, g, b } });
-			vertices.push_back({ { x, y, z + 1}, { r, g, b } });
+			vertex_array[0].push_back({{x, y, z}, {r, g, b}});
+			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
+			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
+			vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b } });
+			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
+			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
 			for (int j = 0; j < 6; j++)
 			{
-				indices.push_back(index + j);
+				indices_array[0].push_back(index + j);
 			}
 			index += 6;
 			if (r > 0.0f) {
@@ -195,31 +202,25 @@ int main()
 		}
 	}
 
-	GLuint VAO1 = va_setup(vertices, indices);
+	va_setup(0);
 	
-	std::vector<vertex> vertices2;
-	std::vector <GLuint> indices2;
-	glm::vec3 color = { 1, 0.1, 0.1 };
-	glm::vec3 scale = { 0.1, 0.1, 0.1 };
-	loadOBJ("obj/teapot.obj", vertices2, indices2, color, scale, glm::vec3(7, 3, 7));
+	colors[1] = {1, 0.1, 0.1};
+	scales[1] = {0.1, 0.1, 0.1};
+	loadOBJ("obj/teapot.obj", vertex_array[1], indices_array[1], colors[1], scales[1], glm::vec3(7, 3, 7));
 
-	GLuint VAO2 = va_setup(vertices2, indices2);
+	va_setup(1);
 
-	std::vector<vertex> vertices3;
-	std::vector <GLuint> indices3;
-	glm::vec3 color2 = { 1, 1, 1 };
-	glm::vec3 scale2 = { 2, 2, 2 };
-	loadOBJ("obj/sphere.obj", vertices3, indices3, color2, scale2, glm::vec3(-20, 15, -20));
+	colors[2] = { 1, 1, 1 };
+	scales[2] = { 2, 2, 2 };
+	loadOBJ("obj/sphere.obj", vertex_array[2], indices_array[2], colors[2], scales[2], glm::vec3(-20, 15, -20));
 
-	GLuint VAO3 = va_setup(vertices3, indices3);
+	va_setup(2);
 
-	std::vector<vertex> vertices4;
-	std::vector <GLuint> indices4;
-	glm::vec3 color3 = { 0, 0.3, 1 };
-	glm::vec3 scale3 = { 1, 1, 4 };
-	loadOBJ("obj/cube.obj", vertices4, indices4, color3, scale3, glm::vec3(0, -0.5, 0));
+	colors[3] = { 0, 0.3, 1 };
+	scales[3] = { 1, 1, 4 };
+	loadOBJ("obj/cube.obj", vertex_array[3], indices_array[3], colors[3], scales[3], glm::vec3(0, -0.5, 0));
 
-	GLuint VAO4 = va_setup(vertices4, indices4);
+	va_setup(3);
 
 	glfwSetCursorPosCallback(globals.window, cursor_position_callback);
 	glfwSetScrollCallback(globals.window, scroll_callback);
@@ -283,14 +284,14 @@ int main()
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
 			// USE buffers
-			glBindVertexArray(VAO1);
-			glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-			glBindVertexArray(VAO2);
-			glDrawElements(GL_TRIANGLES, indices2.size(), GL_UNSIGNED_INT, 0);
-			glBindVertexArray(VAO3);
-			glDrawElements(GL_TRIANGLES, indices3.size(), GL_UNSIGNED_INT, 0);
-			glBindVertexArray(VAO4);
-			glDrawElements(GL_TRIANGLES, indices4.size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO[0]);
+			glDrawElements(GL_TRIANGLES, indices_array[0].size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO[1]);
+			glDrawElements(GL_TRIANGLES, indices_array[1].size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO[2]);
+			glDrawElements(GL_TRIANGLES, indices_array[2].size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO[3]);
+			glDrawElements(GL_TRIANGLES, indices_array[3].size(), GL_UNSIGNED_INT, 0);
 		}
 		glfwSwapBuffers(globals.window);
 		glfwPollEvents();
@@ -611,25 +612,22 @@ std::string getProgramInfoLog(const GLuint obj) {
 	return s;
 }
 
-GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices) {
-	GLuint VAO;
+void va_setup(int index) {
 	{
-		GLuint VBO, EBO;
-
 		// Generate the VAO and VBO
-		glGenVertexArrays(1, &VAO);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
+		glGenVertexArrays(1, &VAO[index]);
+		glGenBuffers(1, &VBO[index]);
+		glGenBuffers(1, &EBO[index]);
 		// Bind VAO (set as the current)
-		glBindVertexArray(VAO);
+		glBindVertexArray(VAO[index]);
 		// Bind the VBO, set type as GL_ARRAY_BUFFER
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO[index]);
 		// Fill-in data into the VBO
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vertex), vertices.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, vertex_array[index].size() * sizeof(vertex), vertex_array[index].data(), GL_DYNAMIC_DRAW);
 		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO[index]);
 		// Fill-in data into the EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_array[index].size() * sizeof(GLuint), indices_array[index].data(), GL_DYNAMIC_DRAW);
 		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
 		// Enable the Vertex Attribute 0 = position
@@ -642,7 +640,6 @@ GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices) {
 		glBindVertexArray(0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
-	return VAO;
 }
 
 bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords) {
