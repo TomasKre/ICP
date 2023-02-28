@@ -26,8 +26,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
-#include <camera.h>
-
 void init_glew(void);
 void init_glfw(void);
 void error_callback(int error, const char* description);
@@ -41,8 +39,16 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 std::string getProgramInfoLog(const GLuint obj);
 std::string getShaderInfoLog(const GLuint obj);
 std::string textFileRead(const std::string fn);
+struct vertex {
+	glm::vec3 position; // Vertex
+	glm::vec3 color; // Color
+};
 
-bool loadOBJ(const char* path, std::vector < glm::vec3 >& out_vertices, std::vector < glm::vec2 >& out_uvs, std::vector < glm::vec3 >& out_normals);
+GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices);
+bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords);
+GLuint gen_tex(std::string filepath);
+
+glm::vec3 check_collision(float x, float z);
 
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
 
@@ -85,20 +91,8 @@ GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
 
-glm::vec3 out_vertices;
-glm::vec3 out_uvs;
-glm::vec3 out_normals;
-
 int main()
 {
-
-	/*globals.capture = cv::VideoCapture(cv::CAP_DSHOW);
-
-	if (!globals.capture.isOpened()) //pokud není kamera otevøená
-	{
-		std::cerr << "no camera" << std::endl;
-		exit(EXIT_FAILURE);
-	}*/
 
 	std::mt19937_64 rng;
 	// initialize the random number generator with time-dependent seed
@@ -147,12 +141,6 @@ int main()
 	glLinkProgram(prog_h);
 	getProgramInfoLog(prog_h);
 	glUseProgram(prog_h);
-
-	//existing data
-	struct vertex {
-		glm::vec3 position; // Vertex
-		glm::vec3 color; // Color
-	};
 
 	// 20x20 floor
 	std::vector<vertex> vertices;
@@ -207,62 +195,31 @@ int main()
 		}
 	}
 
-	/* basic triangle no colors
-	std::vector<vertex> vertices = {
-		{{-0.5f, -0.5f, 0.0f}},
-		{{0.5f, -0.5f, 0.0f}},
-		{{0.0f, 0.5f, 0.0f}} };
-	*/
-	/* 3d triangle
-	std::vector<vertex> vertices = {
-		{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-		{{0.0f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.0f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-		{{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-		{{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}} };*/
-		// basic triangle
-		/*std::vector<vertex> vertices = {
-			{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-			{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-			{{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
-		std::vector<GLuint> indices = { 0, 1, 2};*/
+	GLuint VAO1 = va_setup(vertices, indices);
+	
+	std::vector<vertex> vertices2;
+	std::vector <GLuint> indices2;
+	glm::vec3 color = { 1, 0.1, 0.1 };
+	glm::vec3 scale = { 0.1, 0.1, 0.1 };
+	loadOBJ("obj/teapot.obj", vertices2, indices2, color, scale, glm::vec3(7, 3, 7));
 
+	GLuint VAO2 = va_setup(vertices2, indices2);
 
-		//GL names for Array and Buffers Objects
-	GLuint VAO1;
-	{
-		GLuint VBO, EBO;
+	std::vector<vertex> vertices3;
+	std::vector <GLuint> indices3;
+	glm::vec3 color2 = { 1, 1, 1 };
+	glm::vec3 scale2 = { 2, 2, 2 };
+	loadOBJ("obj/sphere.obj", vertices3, indices3, color2, scale2, glm::vec3(-20, 15, -20));
 
-		// Generate the VAO and VBO
-		glGenVertexArrays(1, &VAO1);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
-		// Bind VAO (set as the current)
-		glBindVertexArray(VAO1);
-		// Bind the VBO, set type as GL_ARRAY_BUFFER
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		// Fill-in data into the VBO
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vertex), vertices.data(), GL_STATIC_DRAW);
-		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		// Fill-in data into the EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
-		// Enable the Vertex Attribute 0 = position
-		glEnableVertexAttribArray(0);
-		// Set end enable Vertex Attribute 1 = Texture Coordinates
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
-		glEnableVertexAttribArray(1);
-		// Bind VBO and VAO to 0 to prevent unintended modification
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
+	GLuint VAO3 = va_setup(vertices3, indices3);
+
+	std::vector<vertex> vertices4;
+	std::vector <GLuint> indices4;
+	glm::vec3 color3 = { 0, 0.3, 1 };
+	glm::vec3 scale3 = { 1, 1, 4 };
+	loadOBJ("obj/cube.obj", vertices4, indices4, color3, scale3, glm::vec3(0, -0.5, 0));
+
+	GLuint VAO4 = va_setup(vertices4, indices4);
 
 	glfwSetCursorPosCallback(globals.window, cursor_position_callback);
 	glfwSetScrollCallback(globals.window, scroll_callback);
@@ -272,11 +229,6 @@ int main()
 	int frame_cnt = 0;
 	globals.last_fps = glfwGetTime();
 
-	/* random hodnoty pro mìnìní barvy trojúhelníku v èase
-	float a = round(unif(rng) * 100) / 100;
-	float b = round(unif(rng) * 100) / 100;
-	float c = round(unif(rng) * 100) / 100;
-	*/
 
 	// transformations
 	// projection & viewport
@@ -333,6 +285,12 @@ int main()
 			// USE buffers
 			glBindVertexArray(VAO1);
 			glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO2);
+			glDrawElements(GL_TRIANGLES, indices2.size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO3);
+			glDrawElements(GL_TRIANGLES, indices3.size(), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(VAO4);
+			glDrawElements(GL_TRIANGLES, indices4.size(), GL_UNSIGNED_INT, 0);
 		}
 		glfwSwapBuffers(globals.window);
 		glfwPollEvents();
@@ -345,12 +303,6 @@ int main()
 			globals.last_fps = now;
 			std::cout << "FPS: " << frame_cnt << std::endl;
 			frame_cnt = 0;
-
-			/* nové random barva
-			a = round(unif(rng) * 100) / 100;
-			b = round(unif(rng) * 100) / 100;
-			c = round(unif(rng) * 100) / 100;
-			*/
 		}
 	}
 
@@ -394,23 +346,43 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 	}
 	double speed = 0.3;
+
 	if ((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)) {
-		player_position.x += cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		player_position.z += sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		float x = player_position.x + cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		float z = player_position.z + sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		player_position = check_collision(x, z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)) {
-		player_position.x -= cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		player_position.z -= sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		float x = player_position.x - cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		float z = player_position.z - sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		player_position = check_collision(x, z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)) {
-		player_position.x += looking_position.x * speed;
-		player_position.z += looking_position.z * speed;
+		float x = player_position.x + looking_position.x * speed;
+		float z = player_position.z + looking_position.z * speed;
+		player_position = check_collision(x, z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)) {
-		player_position.x -= looking_position.x * speed;
-		player_position.z -= looking_position.z * speed;
+		float x = player_position.x - looking_position.x * speed;
+		float z = player_position.z - looking_position.z * speed;
+		player_position = check_collision(x, z);
+		
 	}
 	std::cout << "Player position: " << player_position.x << " " << player_position.y << " " << player_position.z << " ";
+}
+
+glm::vec3 check_collision(float x, float z) {
+	if ( (x > -20 && x < 20 && z > -20 && z < 20)) {
+		player_position.x = x;
+		player_position.z = z;
+	}
+	else if ((x > -20 && x < 20)) {
+		player_position.x = x;
+	}
+	else if ((z > -20 && z < 20)) {
+		player_position.z = z;
+	}
+	return player_position;
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -552,129 +524,6 @@ void init_glew(void) {
 	}
 }
 
-/*
-void image_processing(std::string string) {
-
-	while (true)
-	{
-		cv::Mat frame;
-		globals.capture.read(frame);
-		if (frame.empty())
-		{
-			std::cerr << "Device closed (or video at the end)" << std::endl;
-			break;
-		}
-
-		//cv::Point2f center_relative = find_center_Y(frame);
-		cv::Point2f center_relative = find_center_HSV(frame);
-
-		img_access_mutex.lock();
-		image_data_shared = std::make_unique<image_data>();
-		image_data_shared->frame = frame;
-		image_data_shared->center = center_relative;
-		img_access_mutex.unlock();
-
-		//auto end = std::chrono::steady_clock::now();
-		//std::chrono::duration<double> elapsed_seconds = end - start;
-		//std::cout << "Elapsed time: " << elapsed_seconds.count() << "sec" << std::endl;
-		//std::cout << "Hello World!";
-
-		cv::waitKey(1);
-	}
-	image_proccessing_alive = false;
-}
-
-cv::Point2f find_center_HSV(cv::Mat& frame)
-{
-	cv::Mat frame_hsv;
-cv:cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
-
-	//HSV range(0...180, 0...255, 0...255);
-	//45-75 = green
-	cv::Scalar lower_bound(45, 80, 80);
-	cv::Scalar upper_bound(70, 255, 255);
-	cv::Mat frame_treshold;
-
-	cv::inRange(frame_hsv, lower_bound, upper_bound, frame_treshold);
-
-	//cv::namedWindow("frametr");
-	//cv::imshow("frametr", frame_treshold);
-
-	std::vector<cv::Point> white_pixels;
-	cv::findNonZero(frame_treshold, white_pixels);
-	cv::Point white_reduced = std::reduce(white_pixels.begin(), white_pixels.end());
-
-	cv::Point2f center_relative((float)white_reduced.x / white_pixels.size() / frame.cols, (float)white_reduced.y / white_pixels.size() / frame.rows);
-
-	return center_relative;
-}
-
-cv::Point2f find_center_Y(cv::Mat& frame) {
-
-	cv::Mat frame2;
-	frame.copyTo(frame2);
-
-	int sx = 0, sy = 0, sw = 0;
-
-	for (int y = 0; y < frame.cols; y++)
-	{
-		for (int x = 0; x < frame.rows; x++)
-		{
-			cv::Vec3b pixel = frame.at<cv::Vec3b>(x, y); //BGR -> 2,1,0
-			unsigned char Y = 0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0];
-
-			if (Y < 228)
-			{
-				Y = 0;
-			}
-			else
-			{
-				Y = 255;
-				sx += x;
-				sy += y;
-				sw++;
-			}
-
-			frame2.at<cv::Vec3b>(x, y) = cv::Vec3b(Y, Y, Y);
-		}
-	}
-
-	cv::Point2f center((float)sy / sw, (float)sx / sw);
-	cv::Point2f center_relative((float)center.x / frame.cols, (float)center.y / frame.rows);
-	//frame2.at<cv::Vec3b>(sx / sw, sy / sw) = cv::Vec3b(0, 0, 255);
-
-	return center_relative;
-}
-
-void draw_cross(cv::Mat& img, int x, int y, int size)
-{
-	cv::Point p1(x - size / 2, y);
-	cv::Point p2(x + size / 2, y);
-	cv::Point p3(x, y - size / 2);
-	cv::Point p4(x, y + size / 2);
-
-	cv::line(img, p1, p2, CV_RGB(255, 0, 0), 3);
-	cv::line(img, p3, p4, CV_RGB(255, 0, 0), 3);
-}
-
-void draw_cross_relative(cv::Mat& img, cv::Point2f center_relative, int size)
-{
-	center_relative.x = std::clamp(center_relative.x, 0.0f, 1.0f);
-	center_relative.y = std::clamp(center_relative.y, 0.0f, 1.0f);
-	size = std::clamp(size, 1, std::min(img.cols, img.rows));
-
-	cv::Point2f center_absolute(center_relative.x * img.cols, center_relative.y * img.rows);
-
-	cv::Point2f p1(center_absolute.x - size / 2, center_absolute.y);
-	cv::Point2f p2(center_absolute.x + size / 2, center_absolute.y);
-	cv::Point2f p3(center_absolute.x, center_absolute.y - size / 2);
-	cv::Point2f p4(center_absolute.x, center_absolute.y + size / 2);
-
-	cv::line(img, p1, p2, CV_RGB(0, 0, 255), 2);
-	cv::line(img, p3, p4, CV_RGB(0, 0, 255), 2);
-}
-*/
-
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
 	auto const src_str = [source]() {
@@ -762,16 +611,48 @@ std::string getProgramInfoLog(const GLuint obj) {
 	return s;
 }
 
-bool loadOBJ(const char* path, std::vector < glm::vec3 >& out_vertices, std::vector < glm::vec2 >& out_uvs, std::vector < glm::vec3 >& out_normals)
-{
+GLuint va_setup(std::vector <vertex> vertices, std::vector <GLuint> indices) {
+	GLuint VAO;
+	{
+		GLuint VBO, EBO;
+
+		// Generate the VAO and VBO
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &EBO);
+		// Bind VAO (set as the current)
+		glBindVertexArray(VAO);
+		// Bind the VBO, set type as GL_ARRAY_BUFFER
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		// Fill-in data into the VBO
+		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vertex), vertices.data(), GL_STATIC_DRAW);
+		// Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		// Fill-in data into the EBO
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
+		// Enable the Vertex Attribute 0 = position
+		glEnableVertexAttribArray(0);
+		// Set end enable Vertex Attribute 1 = Texture Coordinates
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
+		glEnableVertexAttribArray(1);
+		// Bind VBO and VAO to 0 to prevent unintended modification
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+	return VAO;
+}
+
+bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords) {
 	std::vector< unsigned int > vertexIndices, uvIndices, normalIndices;
 	std::vector< glm::vec3 > temp_vertices;
 	std::vector< glm::vec2 > temp_uvs;
 	std::vector< glm::vec3 > temp_normals;
 
 	out_vertices.clear();
-	out_uvs.clear();
-	out_normals.clear();
+	indices.clear();
 
 	FILE* file;
 	fopen_s(&file, path, "r");
@@ -779,7 +660,7 @@ bool loadOBJ(const char* path, std::vector < glm::vec3 >& out_vertices, std::vec
 		printf("Impossible to open the file !\n");
 		return false;
 	}
-
+	int index = 0;
 	while (1) {
 
 		char lineHeader[128];
@@ -814,12 +695,11 @@ bool loadOBJ(const char* path, std::vector < glm::vec3 >& out_vertices, std::vec
 			vertexIndices.push_back(vertexIndex[0]);
 			vertexIndices.push_back(vertexIndex[1]);
 			vertexIndices.push_back(vertexIndex[2]);
-			uvIndices.push_back(uvIndex[0]);
-			uvIndices.push_back(uvIndex[1]);
-			uvIndices.push_back(uvIndex[2]);
-			normalIndices.push_back(normalIndex[0]);
-			normalIndices.push_back(normalIndex[1]);
-			normalIndices.push_back(normalIndex[2]);
+			for (int j = 0; j < 6; j++)
+			{
+				indices.push_back(index + j);
+			}
+			index += 6;
 		}
 	}
 
@@ -828,20 +708,52 @@ bool loadOBJ(const char* path, std::vector < glm::vec3 >& out_vertices, std::vec
 
 	for (unsigned int u = 0; u < vertexIndices.size(); u++) {
 		unsigned int vertexIndex = vertexIndices[u];
-		glm::vec3 vertex = temp_vertices[vertexIndex - 1];
-		out_vertices.push_back(vertex);
-	}
-	for (unsigned int u = 0; u < uvIndices.size(); u++) {
-		unsigned int uvIndex = uvIndices[u];
-		glm::vec2 uv = temp_uvs[uvIndex - 1];
-		out_uvs.push_back(uv);
-	}
-	for (unsigned int u = 0; u < normalIndices.size(); u++) {
-		unsigned int normalIndex = normalIndices[u];
-		glm::vec3 normal = temp_normals[normalIndex - 1];
-		out_normals.push_back(normal);
+		glm::vec3 vertex = coords + (temp_vertices[vertexIndex - 1] * scale);
+		out_vertices.push_back({ vertex, color });
 	}
 
 	fclose(file);
 	return true;
+}
+
+GLuint gen_tex(std::string filepath)
+{
+	GLuint ID;
+	cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED); // Read with (potential) Alpha
+	if (image.channels() != 4) exit(-1);  // Check the image, we want Alpha in this example    
+
+	// Generates an OpenGL texture object
+	glGenTextures(1, &ID);
+
+	// Assigns the texture to a Texture Unit
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, ID);
+
+	// Texture data alignment for transfer (single byte = basic, slow, but safe option; usually not necessary) 
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// Assigns the image to the OpenGL Texture object
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.cols, image.rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, image.data);
+
+	// Configures the type of algorithm that is used to make the image smaller or bigger
+	// nearest neighbor - ugly & fast 
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);  
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	// bilinear - nicer & slower
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// MIPMAP filtering + automatic MIPMAP generation - nicest, needs more memory. Notice: MIPMAP is only for image minifying.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // bilinear magnifying
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // trilinear minifying
+	glGenerateMipmap(GL_TEXTURE_2D);  //Generate mipmaps now.
+
+	// Configures the way the texture repeats
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	// Unbinds the OpenGL Texture object so that it can't accidentally be modified
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return ID;
 }
