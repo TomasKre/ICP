@@ -40,3 +40,16 @@
 *.mkv
 *.mp4
 *.gif
+
+# other
+*.vsidx
+*.lock
+*.ipch
+.suo
+*.bin
+FileContentIndex/
+v17/
+x64/
+.vs/
+resources/
+*.sln
