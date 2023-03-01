@@ -49,6 +49,10 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
 GLuint gen_tex(std::string filepath);
 
 glm::vec3 check_collision(float x, float z);
+std::array<bool, 3> check_objects_collisions(float x, float z);
+void init_object_coords();
+
+void setup_objects();
 
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
 
@@ -69,7 +73,7 @@ typedef struct s_globals {
 	int x = 0;
 	int y = 0;
 	double last_fps;
-	float fov = 60.0f;
+	float fov = 90.0f;
 } s_globals;
 
 s_globals globals;
@@ -91,7 +95,7 @@ GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
 
-const int n_objects = 4;
+const int n_objects = 12;
 GLuint VAO[n_objects];
 GLuint VBO[n_objects];
 GLuint EBO[n_objects];
@@ -99,6 +103,17 @@ std::vector<vertex> vertex_array[n_objects];
 std::vector <GLuint> indices_array[n_objects];
 glm::vec3 colors[n_objects];
 glm::vec3 scales[n_objects];
+glm::vec3 coordinates[n_objects];
+
+struct coords {
+	float min_x;
+	float max_x;
+	float min_z;
+	float max_z;
+};
+const int n_col_obj = 9;
+std::vector<vertex> col_obj[n_col_obj];
+coords objects_coords[n_col_obj];
 
 int main()
 {
@@ -151,76 +166,7 @@ int main()
 	getProgramInfoLog(prog_h);
 	glUseProgram(prog_h);
 
-	// 20x20 floor
-	float y = 0.0f;
-	float r = 1.0f;
-	float g = 0.0f;
-	float b = 0.0f;
-	int index = 0;
-	for (float x = -10.0; x < 10.0; x++)
-	{
-		//y = round((unif(rng)) * 1000 - 500) / 50;
-		y = -1.0f;
-		for (float z = -10.0; z < 10.0; z++)
-		{
-
-			vertex_array[0].push_back({{x, y, z}, {r, g, b}});
-			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
-			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
-			vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b } });
-			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
-			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
-			for (int j = 0; j < 6; j++)
-			{
-				indices_array[0].push_back(index + j);
-			}
-			index += 6;
-			if (r > 0.0f) {
-				r = 0.0f;
-			}
-			else {
-				r = 1.0f;
-			}
-			if (g > 0.0f) {
-				g = 0.0f;
-			}
-			else {
-				g = 1.0f;
-			}
-		}
-		if (r > 0.0f) {
-			r = 0.0f;
-		}
-		else {
-			r = 1.0f;
-		}
-		if (g > 0.0f) {
-			g = 0.0f;
-		}
-		else {
-			g = 1.0f;
-		}
-	}
-
-	va_setup(0);
-	
-	colors[1] = {1, 0.1, 0.1};
-	scales[1] = {0.1, 0.1, 0.1};
-	loadOBJ("obj/teapot.obj", vertex_array[1], indices_array[1], colors[1], scales[1], glm::vec3(7, 3, 7));
-
-	va_setup(1);
-
-	colors[2] = { 1, 1, 1 };
-	scales[2] = { 2, 2, 2 };
-	loadOBJ("obj/sphere.obj", vertex_array[2], indices_array[2], colors[2], scales[2], glm::vec3(-20, 15, -20));
-
-	va_setup(2);
-
-	colors[3] = { 0, 0.3, 1 };
-	scales[3] = { 1, 1, 4 };
-	loadOBJ("obj/cube.obj", vertex_array[3], indices_array[3], colors[3], scales[3], glm::vec3(0, -0.5, 0));
-
-	va_setup(3);
+	setup_objects();
 
 	glfwSetCursorPosCallback(globals.window, cursor_position_callback);
 	glfwSetScrollCallback(globals.window, scroll_callback);
@@ -284,14 +230,10 @@ int main()
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
 			// USE buffers
-			glBindVertexArray(VAO[0]);
-			glDrawElements(GL_TRIANGLES, indices_array[0].size(), GL_UNSIGNED_INT, 0);
-			glBindVertexArray(VAO[1]);
-			glDrawElements(GL_TRIANGLES, indices_array[1].size(), GL_UNSIGNED_INT, 0);
-			glBindVertexArray(VAO[2]);
-			glDrawElements(GL_TRIANGLES, indices_array[2].size(), GL_UNSIGNED_INT, 0);
-			glBindVertexArray(VAO[3]);
-			glDrawElements(GL_TRIANGLES, indices_array[3].size(), GL_UNSIGNED_INT, 0);
+			for (int i = 0; i < n_objects; i++) {
+				glBindVertexArray(VAO[i]);
+				glDrawElements(GL_TRIANGLES, indices_array[i].size(), GL_UNSIGNED_INT, 0);
+			}
 		}
 		glfwSwapBuffers(globals.window);
 		glfwPollEvents();
@@ -373,17 +315,68 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 glm::vec3 check_collision(float x, float z) {
-	if ( (x > -20 && x < 20 && z > -20 && z < 20)) {
+	std::array<bool, 3> col = check_objects_collisions(x, z);
+	if (col[0]) {
+		//if object isn't in bounds of any object, move freely
 		player_position.x = x;
 		player_position.z = z;
 	}
-	else if ((x > -20 && x < 20)) {
-		player_position.x = x;
-	}
-	else if ((z > -20 && z < 20)) {
-		player_position.z = z;
+	else {
+		if (col[1]) {
+			//if x step would not be in object bounds, move only on x axis
+			player_position.x = x;
+		}
+		if (col[2]) {
+			//if z step would not be in object bounds, move only on z axis
+			player_position.z = z;
+		}
 	}
 	return player_position;
+}
+
+std::array<bool, 3> check_objects_collisions(float x, float z) {
+	std::array<bool, 3> col = {true, true, true};
+	for (coords c : objects_coords) {
+		//if x is in object bounds and z is in object bounds
+		if (x > c.min_x && x < c.max_x && z > c.min_z && z < c.max_z) {
+			col[0] = false;
+			//if x step would be in object bounds
+			if (player_position.x < c.min_x || player_position.x > c.max_x) {
+				col[1] = false;
+			}
+			//if z step would be in object bounds
+			if (player_position.z < c.min_z || player_position.z > c.max_z) {
+				col[2] = false;
+			}
+			break;
+		}
+	}
+	return col;
+}
+
+void init_object_coords() {
+
+	//get min and max coords for objects (used in collision logic)
+	for (int i = 0; i < n_col_obj; i++) {
+		objects_coords[i].min_x = 999;
+		objects_coords[i].max_x = -999;
+		objects_coords[i].min_z = 999;
+		objects_coords[i].max_z = -999;
+		for (vertex v : col_obj[i]) {
+			if (v.position[0] * 2 < objects_coords[i].min_x) {
+				objects_coords[i].min_x = v.position[0] * 2;
+			}
+			if (v.position[0] * 2 > objects_coords[i].max_x) {
+				objects_coords[i].max_x = v.position[0] * 2;
+			}
+			if (v.position[2] * 2 < objects_coords[i].min_z) {
+				objects_coords[i].min_z = v.position[2] * 2;
+			}
+			if (v.position[2] * 2 > objects_coords[i].max_z) {
+				objects_coords[i].max_z = v.position[2] * 2;
+			}
+		}
+	}
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -432,6 +425,7 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 	lastxpos = xpos;
 	lastypos = ypos;
 }
+
 static void finalize(int code)
 {
 	// ...
@@ -753,4 +747,148 @@ GLuint gen_tex(std::string filepath)
 	// Unbinds the OpenGL Texture object so that it can't accidentally be modified
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return ID;
+}
+
+void setup_objects() {
+	// 20x20 floor
+	float y = 0.0f;
+	float r = 1.0f;
+	float g = 0.0f;
+	float b = 0.0f;
+	int index = 0;
+	for (float x = -10.0; x < 10.0; x++)
+	{
+		//y = round((unif(rng)) * 1000 - 500) / 50;
+		y = -1.0f;
+		for (float z = -10.0; z < 10.0; z++)
+		{
+
+			vertex_array[0].push_back({ {x, y, z}, {r, g, b} });
+			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
+			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
+			vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b } });
+			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
+			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
+			for (int j = 0; j < 6; j++)
+			{
+				indices_array[0].push_back(index + j);
+			}
+			index += 6;
+			if (r > 0.0f) {
+				r = 0.0f;
+			}
+			else {
+				r = 1.0f;
+			}
+			if (g > 0.0f) {
+				g = 0.0f;
+			}
+			else {
+				g = 1.0f;
+			}
+		}
+		if (r > 0.0f) {
+			r = 0.0f;
+		}
+		else {
+			r = 1.0f;
+		}
+		if (g > 0.0f) {
+			g = 0.0f;
+		}
+		else {
+			g = 1.0f;
+		}
+	}
+
+	va_setup(0);
+
+	//setup color, scale and coordinates for object
+	colors[1] = { 1, 0.1, 0.1 };
+	scales[1] = { 0.1, 0.1, 0.1 };
+	coordinates[1] = { 7, 3, 7 };
+
+	//load object from file
+	loadOBJ("obj/teapot.obj", vertex_array[1], indices_array[1], colors[1], scales[1], coordinates[1]);
+
+	//setup vertex array
+	va_setup(1);
+
+	colors[2] = { 1, 1, 1 };
+	scales[2] = { 2, 2, 2 };
+	coordinates[2] = { -20, 15, -20 };
+	loadOBJ("obj/sphere.obj", vertex_array[2], indices_array[2], colors[2], scales[2], coordinates[2]);
+
+	va_setup(2);
+
+	colors[3] = { 0.5, 0, 0.5 };
+	scales[3] = { 2, 1, 2 };
+	coordinates[3] = { 0, -0.5, 0 };
+	loadOBJ("obj/cube.obj", vertex_array[3], indices_array[3], colors[3], scales[3], coordinates[3]);
+
+	va_setup(3);
+
+	colors[4] = { 0.3, 0.3, 0.3 };
+	scales[4] = { 1, 1, 20 };
+	coordinates[4] = { -10.5, -0.5, 0 };
+	loadOBJ("obj/cube.obj", vertex_array[4], indices_array[4], colors[4], scales[4], coordinates[4]);
+
+	va_setup(4);
+
+	colors[5] = { 0.3, 0.3, 0.3 };
+	scales[5] = { 1, 1, 20 };
+	coordinates[5] = { 10.5, -0.5, 0 };
+	loadOBJ("obj/cube.obj", vertex_array[5], indices_array[5], colors[5], scales[5], coordinates[5]);
+
+	va_setup(5);
+
+	colors[6] = { 0.3, 0.3, 0.3 };
+	scales[6] = { 20, 1, 1 };
+	coordinates[6] = { 0, -0.5, -10.5 };
+	loadOBJ("obj/cube.obj", vertex_array[6], indices_array[6], colors[6], scales[6], coordinates[6]);
+
+	va_setup(6);
+
+	colors[7] = { 0.3, 0.3, 0.3 };
+	scales[7] = { 20, 1, 1 };
+	coordinates[7] = { 0, -0.5, 10.5 };
+	loadOBJ("obj/cube.obj", vertex_array[7], indices_array[7], colors[7], scales[7], coordinates[7]);
+
+	va_setup(7);
+
+	colors[8] = { 0.3, 0.3, 0.3 };
+	scales[8] = { 1, 1, 1 };
+	coordinates[8] = { 10.5, -0.5, 10.5 };
+	loadOBJ("obj/cube.obj", vertex_array[8], indices_array[8], colors[8], scales[8], coordinates[8]);
+
+	va_setup(8);
+
+	colors[9] = { 0.3, 0.3, 0.3 };
+	scales[9] = { 1, 1, 1 };
+	coordinates[9] = { -10.5, -0.5, -10.5 };
+	loadOBJ("obj/cube.obj", vertex_array[9], indices_array[9], colors[9], scales[9], coordinates[9]);
+
+	va_setup(9);
+
+	colors[10] = { 0.3, 0.3, 0.3 };
+	scales[10] = { 1, 1, 1 };
+	coordinates[10] = { 10.5, -0.5, -10.5 };
+	loadOBJ("obj/cube.obj", vertex_array[10], indices_array[10], colors[10], scales[10], coordinates[10]);
+
+	va_setup(10);
+
+	colors[11] = { 0.3, 0.3, 0.3 };
+	scales[11] = { 1, 1, 1 };
+	coordinates[11] = { -10.5, -0.5, 10.5 };
+	loadOBJ("obj/cube.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
+
+	va_setup(11);
+
+	//choose objects with collisions
+	int j = 0;
+	for (int i : {3, 4, 5, 6, 7, 8, 9, 10, 11}) {
+		col_obj[j] = vertex_array[i];
+		j++;
+	}
+	init_object_coords();
 }
