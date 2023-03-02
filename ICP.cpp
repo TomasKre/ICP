@@ -39,8 +39,9 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 std::string getProgramInfoLog(const GLuint obj);
 std::string getShaderInfoLog(const GLuint obj);
 std::string textFileRead(const std::string fn);
+
 struct vertex {
-	glm::vec3 position; // Vertex
+	glm::vec3 position; // Vertex pos
 	glm::vec3 color; // Color
 };
 
@@ -143,7 +144,7 @@ int main()
 	// ALL objects are non-transparent, cull back face of polygons 
 	glEnable(GL_CULL_FACE);
 
-	// create and use shaders
+	// create shaders
 	GLuint VS_h, FS_h, prog_h;
 	VS_h = glCreateShader(GL_VERTEX_SHADER);
 	FS_h = glCreateShader(GL_FRAGMENT_SHADER);
@@ -155,6 +156,7 @@ int main()
 	glShaderSource(VS_h, 1, &VS_string, NULL);
 	glShaderSource(FS_h, 1, &FS_string, NULL);
 
+	// compile and use shaders
 	glCompileShader(VS_h);
 	getShaderInfoLog(VS_h);
 	glCompileShader(FS_h);
@@ -166,16 +168,18 @@ int main()
 	getProgramInfoLog(prog_h);
 	glUseProgram(prog_h);
 
+	// load objects
 	setup_objects();
 
+	// set callbacks
 	glfwSetCursorPosCallback(globals.window, cursor_position_callback);
 	glfwSetScrollCallback(globals.window, scroll_callback);
 	glfwSetMouseButtonCallback(globals.window, mouse_button_callback);
 	glfwSetKeyCallback(globals.window, key_callback);
 
+	// frames and time
 	int frame_cnt = 0;
 	globals.last_fps = glfwGetTime();
-
 
 	// transformations
 	// projection & viewport
@@ -216,32 +220,35 @@ int main()
 			//m_m = glm::translate(m_m, glm::vec3(width / 2.0, height / 2.0, 0.0));
 			m_m = glm::scale(m_m, glm::vec3(2.0f));
 
-			// rotate slowly
+			// rotate slowly with everything
 			//m_m = glm::rotate(m_m, glm::radians(100.0f * (float)glfwGetTime()), glm::vec3(0.2f, 0.1f, 0.3f));
 
+			// pøedání do shaderu
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
-
 
 			// View matrix
 			glm::mat4 v_m = glm::lookAt(player_position, //position of camera
 				glm::vec3(player_position + looking_position), //where to look
 				glm::vec3(0, 1, 0)  //UP direction
 			);
+			// pøedání do shaderu
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
-			// USE buffers
+			// Use buffers
 			for (int i = 0; i < n_objects; i++) {
 				glBindVertexArray(VAO[i]);
 				glDrawElements(GL_TRIANGLES, indices_array[i].size(), GL_UNSIGNED_INT, 0);
 			}
 		}
+		// Prohodit buffery k vykreslení a naèítání, zaznamenat eventy
 		glfwSwapBuffers(globals.window);
 		glfwPollEvents();
 
+		// frames a time
 		frame_cnt++;
-
 		double now = glfwGetTime();
 
+		// vypsání fps
 		if ((now - globals.last_fps) > 1) {
 			globals.last_fps = now;
 			std::cout << "FPS: " << frame_cnt << std::endl;
@@ -355,7 +362,6 @@ std::array<bool, 3> check_objects_collisions(float x, float z) {
 }
 
 void init_object_coords() {
-
 	//get min and max coords for objects (used in collision logic)
 	for (int i = 0; i < n_col_obj; i++) {
 		objects_coords[i].min_x = 999;
