@@ -87,6 +87,7 @@ bool image_proccessing_alive;
 // player & position
 glm::vec3 player_position(-10.0f, 1.0f, -10.0f);
 glm::vec3 looking_position(10.0f, 1.0f, 10.0f);
+glm::vec3 up(0, 1, 0);
 
 GLfloat Yaw = -90.0f;
 GLfloat Pitch = 0.0f;;
@@ -229,7 +230,7 @@ int main()
 			// View matrix
 			glm::mat4 v_m = glm::lookAt(player_position, //position of camera
 				glm::vec3(player_position + looking_position), //where to look
-				glm::vec3(0, 1, 0)  //UP direction
+				up  //UP direction
 			);
 			// pøedání do shaderu
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
@@ -295,28 +296,30 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			glfwSetInputMode(globals.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		}
 	}
-	double speed = 0.3;
+	float speed = 0.3f;
 
 	if ((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)) {
-		float x = player_position.x + cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		float z = player_position.z + sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		player_position = check_collision(x, z);
+		player_position += speed * glm::normalize(glm::cross(looking_position, up));
+		//player_position.x += cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		//player_position.z += sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		player_position = check_collision(player_position.x, player_position.z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)) {
-		float x = player_position.x - cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		float z = player_position.z - sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		player_position = check_collision(x, z);
+		player_position -= speed * glm::normalize(glm::cross(looking_position, up));
+		//player_position.x -= cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		//player_position.z -= sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
+		player_position = check_collision(player_position.x, player_position.z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)) {
-		float x = player_position.x + looking_position.x * speed;
-		float z = player_position.z + looking_position.z * speed;
-		player_position = check_collision(x, z);
+		player_position.x += looking_position.x * speed;
+		player_position.z += looking_position.z * speed;
+		player_position = check_collision(player_position.x, player_position.z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)) {
-		float x = player_position.x - looking_position.x * speed;
-		float z = player_position.z - looking_position.z * speed;
-		player_position = check_collision(x, z);
-		
+		player_position.x -= looking_position.x * speed;
+		player_position.z -= looking_position.z * speed;
+		player_position = check_collision(player_position.x, player_position.z);
+
 	}
 	std::cout << "Player position: " << player_position.x << " " << player_position.y << " " << player_position.z << " ";
 }
@@ -342,7 +345,7 @@ glm::vec3 check_collision(float x, float z) {
 }
 
 std::array<bool, 3> check_objects_collisions(float x, float z) {
-	std::array<bool, 3> col = {true, true, true};
+	std::array<bool, 3> col = { true, true, true };
 	for (coords c : objects_coords) {
 		//if x is in object bounds and z is in object bounds
 		if (x > c.min_x && x < c.max_x && z > c.min_z && z < c.max_z) {
