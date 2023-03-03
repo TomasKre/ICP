@@ -26,6 +26,9 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
+// Our files
+#include "Texture.h"
+
 void init_glew(void);
 void init_glfw(void);
 void error_callback(int error, const char* description);
@@ -43,6 +46,8 @@ std::string textFileRead(const std::string fn);
 struct vertex {
 	glm::vec3 position; // Vertex pos
 	glm::vec3 color; // Color
+	glm::vec2 texCoor; // Texture coordinates
+	glm::vec3 normal; // Normal used for light reflectivity
 };
 
 void va_setup(int index);
@@ -97,7 +102,7 @@ GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
 
-const int n_objects = 12;
+const int n_objects = /*12*/1;
 GLuint VAO[n_objects];
 GLuint VBO[n_objects];
 GLuint EBO[n_objects];
@@ -167,7 +172,19 @@ int main()
 	glAttachShader(prog_h, FS_h);
 	glLinkProgram(prog_h);
 	getProgramInfoLog(prog_h);
+
 	glUseProgram(prog_h);
+
+	// Textures
+	Texture planks("planks.png", GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE);
+	planks.texUnit(prog_h, "tex0", 0);
+	// GL_RED jelikož je jednokanálový
+	Texture planks1C("planks1C.png", GL_TEXTURE_2D, 1, GL_RED, GL_UNSIGNED_BYTE);
+	planks1C.texUnit(prog_h, "tex1", 1);
+
+	// Lights
+	glUniformMatrix4f(glGetUniformLocation(prog_h, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f );
+	glUniformMatrix3f(glGetUniformLocation(prog_h, "lightPos"), 0.0f, 2.0f, 0.3f );
 
 	// load objects
 	setup_objects();
@@ -234,6 +251,13 @@ int main()
 			);
 			// pøedání do shaderu
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
+
+			// aktualizace kamery v shaderu
+			glUniformMatrix3f(glGetUniformLocation(prog_h, "camPos"), player_position.x, player_position.y, player_position.z);
+
+			// Binds textures so that they appear in the rendering
+			planks.Bind();
+			planks1C.Bind();
 
 			// Use buffers
 			for (int i = 0; i < n_objects; i++) {
@@ -772,12 +796,12 @@ void setup_objects() {
 		for (float z = -10.0; z < 10.0; z++)
 		{
 
-			vertex_array[0].push_back({ {x, y, z}, {r, g, b} });
-			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
-			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
-			vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b } });
-			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
-			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
+			vertex_array[0].push_back({ {x, y, z}, {r, g, b}, {0.0f, 0.0f} });
+			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b }, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f} });
+			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b }, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f} });
+			vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b }, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f} });
+			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b }, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f} });
+			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b }, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f} });
 			for (int j = 0; j < 6; j++)
 			{
 				indices_array[0].push_back(index + j);
@@ -812,6 +836,7 @@ void setup_objects() {
 
 	va_setup(0);
 
+	/*
 	//setup color, scale and coordinates for object
 	colors[1] = { 1, 0.1, 0.1 };
 	scales[1] = { 0.1, 0.1, 0.1 };
@@ -892,7 +917,7 @@ void setup_objects() {
 	loadOBJ("obj/cube.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
 
 	va_setup(11);
-
+	
 	//choose objects with collisions
 	int j = 0;
 	for (int i : {3, 4, 5, 6, 7, 8, 9, 10, 11}) {
@@ -900,4 +925,5 @@ void setup_objects() {
 		j++;
 	}
 	init_object_coords();
+	*/
 }
