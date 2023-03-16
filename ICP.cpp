@@ -26,9 +26,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
-// Our files
-#include "Texture.h"
-
 void init_glew(void);
 void init_glfw(void);
 void error_callback(int error, const char* description);
@@ -42,6 +39,9 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 std::string getProgramInfoLog(const GLuint obj);
 std::string getShaderInfoLog(const GLuint obj);
 std::string textFileRead(const std::string fn);
+
+GLuint gen_tex0(std::string filepath);
+GLuint gen_tex1(std::string filepath);
 
 struct vertex {
 	glm::vec3 position; // Vertex pos
@@ -87,8 +87,6 @@ s_globals globals;
 std::mutex img_access_mutex;
 bool image_proccessing_alive;
 
-//glm::vec4 color(0, 0, 0, 1);
-
 // player & position
 glm::vec3 player_position(-10.0f, 1.0f, -10.0f);
 glm::vec3 looking_position(10.0f, 1.0f, 10.0f);
@@ -102,7 +100,7 @@ GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
 
-const int n_objects = /*12*/1;
+const int n_objects = 1;//12;
 GLuint VAO[n_objects];
 GLuint VBO[n_objects];
 GLuint EBO[n_objects];
@@ -118,13 +116,12 @@ struct coords {
 	float min_z;
 	float max_z;
 };
-const int n_col_obj = 9;
+const int n_col_obj = 1;//9;
 std::vector<vertex> col_obj[n_col_obj];
 coords objects_coords[n_col_obj];
 
 int main()
 {
-
 	std::mt19937_64 rng;
 	// initialize the random number generator with time-dependent seed
 	uint64_t timeSeed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -175,16 +172,23 @@ int main()
 
 	glUseProgram(prog_h);
 
+	GLint success = 0;
+	std::cout << "Success false = " << GL_FALSE << std::endl;
+	glGetShaderiv(VS_h, GL_COMPILE_STATUS, &success);
+	std::cout << "Vertex shader " << success << std::endl;
+	glGetShaderiv(FS_h, GL_COMPILE_STATUS, &success);
+	std::cout << "Fragment shader " << success << std::endl;
+	glGetProgramiv(prog_h, GL_LINK_STATUS, &success);
+	std::cout << "Program linking " << success << std::endl;
+
 	// Textures
-	Texture planks("planks.png", GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE);
-	planks.texUnit(prog_h, "tex0", 0);
+	GLuint tex0 = gen_tex0("textures/planks.png");
 	// GL_RED jelikož je jednokanálový
-	Texture planks1C("planks1C.png", GL_TEXTURE_2D, 1, GL_RED, GL_UNSIGNED_BYTE);
-	planks1C.texUnit(prog_h, "tex1", 1);
+	GLuint tex1 = gen_tex1("textures/planks1C.png");
 
 	// Lights
-	glUniformMatrix4f(glGetUniformLocation(prog_h, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f );
-	glUniformMatrix3f(glGetUniformLocation(prog_h, "lightPos"), 0.0f, 2.0f, 0.3f );
+	glUniform4f(glGetUniformLocation(prog_h, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f);
+	glUniform3f(glGetUniformLocation(prog_h, "lightPos"), 0.0f, 2.0f, 0.3f);
 
 	// load objects
 	setup_objects();
@@ -203,7 +207,6 @@ int main()
 	// projection & viewport
 	int width, height;
 	glfwGetWindowSize(glfwGetCurrentContext(), &width, &height);
-
 	float ratio = static_cast<float>(width) / height;
 
 	// set visible area
@@ -253,11 +256,7 @@ int main()
 			glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
 			// aktualizace kamery v shaderu
-			glUniformMatrix3f(glGetUniformLocation(prog_h, "camPos"), player_position.x, player_position.y, player_position.z);
-
-			// Binds textures so that they appear in the rendering
-			planks.Bind();
-			planks1C.Bind();
+			glUniform3f(glGetUniformLocation(prog_h, "camPos"), player_position.x, player_position.y, player_position.z);
 
 			// Use buffers
 			for (int i = 0; i < n_objects; i++) {
@@ -655,13 +654,26 @@ void va_setup(int index) {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO[index]);
 		// Fill-in data into the EBO
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_array[index].size() * sizeof(GLuint), indices_array[index].data(), GL_DYNAMIC_DRAW);
+
+
 		// Set Vertex Attribute to explain OpenGL how to interpret the VBO
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
 		// Enable the Vertex Attribute 0 = position
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
 		glEnableVertexAttribArray(0);
-		// Set end enable Vertex Attribute 1 = Texture Coordinates
+
+		// Set end enable Vertex Attribute 1 = color
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
 		glEnableVertexAttribArray(1);
+
+		// Set end enable Vertex Attribute 2 = texture coordinates
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, texCoor)));
+		glEnableVertexAttribArray(2);
+
+		// Set end enable Vertex Attribute 3 = normal
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, normal)));
+		glEnableVertexAttribArray(3);
+
+
 		// Bind VBO and VAO to 0 to prevent unintended modification
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
@@ -740,7 +752,7 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
 	return true;
 }
 
-GLuint gen_tex(std::string filepath)
+GLuint gen_tex0(std::string filepath)
 {
 	GLuint ID;
 	cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED); // Read with (potential) Alpha
@@ -782,6 +794,48 @@ GLuint gen_tex(std::string filepath)
 	return ID;
 }
 
+GLuint gen_tex1(std::string filepath)
+{
+	GLuint ID;
+	cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED); // Read with (potential) Alpha
+	if (image.channels() != 1) exit(-1);  // Check the image, we want Alpha in this example    
+
+	// Generates an OpenGL texture object
+	glGenTextures(1, &ID);
+
+	// Assigns the texture to a Texture Unit
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, ID);
+
+	// Texture data alignment for transfer (single byte = basic, slow, but safe option; usually not necessary) 
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// Assigns the image to the OpenGL Texture object
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, image.cols, image.rows, 0, GL_RED, GL_UNSIGNED_BYTE, image.data);
+
+	// Configures the type of algorithm that is used to make the image smaller or bigger
+	// nearest neighbor - ugly & fast 
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);  
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	// bilinear - nicer & slower
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// MIPMAP filtering + automatic MIPMAP generation - nicest, needs more memory. Notice: MIPMAP is only for image minifying.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // bilinear magnifying
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // trilinear minifying
+	glGenerateMipmap(GL_TEXTURE_2D);  //Generate mipmaps now.
+
+	// Configures the way the texture repeats
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	// Unbinds the OpenGL Texture object so that it can't accidentally be modified
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return ID;
+}
+
 void setup_objects() {
 	// 20x20 floor
 	float y = 0.0f;
@@ -795,18 +849,19 @@ void setup_objects() {
 		y = -1.0f;
 		for (float z = -10.0; z < 10.0; z++)
 		{
-
-			vertex_array[0].push_back({ {x, y, z}, {r, g, b}, {0.0f, 0.0f} });
+			vertex_array[0].push_back({ {x, y, z}, {r, g, b}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f} });
 			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b }, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f} });
 			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b }, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f} });
 			vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b }, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f} });
-			vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b }, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f} });
-			vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b }, {0.0f, 1.0f}, {0.0f, 1.0f, 0.0f} });
-			for (int j = 0; j < 6; j++)
-			{
-				indices_array[0].push_back(index + j);
-			}
+
+			indices_array[0].push_back(index);
+			indices_array[0].push_back(index + 1);
+			indices_array[0].push_back(index + 2);
+			indices_array[0].push_back(index + 3);
+			indices_array[0].push_back(index + 2);
+			indices_array[0].push_back(index + 1);
 			index += 6;
+
 			if (r > 0.0f) {
 				r = 0.0f;
 			}
@@ -917,13 +972,12 @@ void setup_objects() {
 	loadOBJ("obj/cube.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
 
 	va_setup(11);
-	
+
 	//choose objects with collisions
 	int j = 0;
 	for (int i : {3, 4, 5, 6, 7, 8, 9, 10, 11}) {
 		col_obj[j] = vertex_array[i];
 		j++;
-	}
+	}*/
 	init_object_coords();
-	*/
 }

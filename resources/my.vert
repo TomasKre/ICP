@@ -1,4 +1,4 @@
-#version 330 core
+﻿#version 330 core
 
 layout (location = 0) in vec3 aPos; // Positions/Coordinates
 layout (location = 1) in vec3 aColor; // Color RGB
@@ -9,13 +9,10 @@ uniform mat4 uP_m;
 uniform mat4 uV_m;
 uniform mat4 uM_m;
 
-// Outputs colors in RGBA
-out vec4 FragColor;
-
-// Exports the current position to the Fragment Shader
-out vec3 pos;
+// Export position
+out vec4 crntPos;
 // Exports the color to the Fragment Shader
-out vec3 color;
+out vec4 color;
 // Exports texture coordinates to the Fragment Shader
 out vec2 texCoord;
 // Exports the normal to the Fragment Shader
@@ -23,8 +20,11 @@ out vec3 Normal;
 
 void main() {
 	// Outputs coordinates of all vertices
-	pos = uP_m * uV_m * uM_m * vec4(aPos, 1.0f);
-	color = aColor;
+	gl_Position = uP_m * uV_m * uM_m * vec4(aPos, 1.0f);
+	crntPos = gl_Position;
+	color = vec4(aColor, 1.0f);
 	texCoord = aTexCoord;
+	// Je mozne, ze se budou normaly muset nejak prepocitavat pomoci matic vyse,
+	// pokud tam bude nejake pootoceni apod. (not sure tho)
 	Normal = aNormal;
 }

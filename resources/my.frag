@@ -1,16 +1,16 @@
-#version 330 core
+ï»¿#version 330 core
 
 // Outputs colors in RGBA
 out vec4 FragColor;
 
-// Imports the current position from the Vertex Shader
-in vec3 pos;
 // Imports the color from the Vertex Shader
 in vec3 color;
 // Imports the texture coordinates from the Vertex Shader
 in vec2 texCoord;
 // Imports the normal from the Vertex Shader
 in vec3 Normal;
+// Vertex shader calculated position
+in vec4 crntPos;
 
 // Gets the Texture Units from the main function
 // Diffuse texture
@@ -28,7 +28,7 @@ uniform vec3 camPos;
 vec4 pointLight()
 {	
 	// used in two variables so I calculate it here to not have to do it twice
-	vec3 lightVec = lightPos - crntPos;
+	vec3 lightVec = lightPos - crntPos.xyz;
 
 	// intensity of light with respect to distance
 	float dist = length(lightVec);
@@ -46,7 +46,7 @@ vec4 pointLight()
 
 	// specular lighting
 	float specularLight = 0.50f;
-	vec3 viewDirection = normalize(camPos - crntPos);
+	vec3 viewDirection = normalize(camPos - crntPos.xyz);
 	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
 	float specular = specAmount * specularLight;
@@ -66,7 +66,7 @@ vec4 direcLight()
 
 	// specular lighting
 	float specularLight = 0.50f;
-	vec3 viewDirection = normalize(camPos - crntPos);
+	vec3 viewDirection = normalize(camPos - crntPos.xyz);
 	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
 	float specular = specAmount * specularLight;
@@ -85,12 +85,12 @@ vec4 spotLight()
 
 	// diffuse lighting
 	vec3 normal = normalize(Normal);
-	vec3 lightDirection = normalize(lightPos - crntPos);
+	vec3 lightDirection = normalize(lightPos - crntPos.xyz);
 	float diffuse = max(dot(normal, lightDirection), 0.0f);
 
 	// specular lighting
 	float specularLight = 0.50f;
-	vec3 viewDirection = normalize(camPos - crntPos);
+	vec3 viewDirection = normalize(camPos - crntPos.xyz);
 	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16);
 	float specular = specAmount * specularLight;
@@ -107,5 +107,5 @@ void main()
 {
 	// outputs final color
 	FragColor = pointLight();
-	// TODO for pro více svìtel a pøípadnì switch na rùzné typy svìtla
+	// TODO for pro vÃ­ce svÄ›tel a pÅ™Ã­padnÃ½ switch na rÅ¯znÃ© typy svÄ›tel
 }
