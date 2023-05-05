@@ -299,27 +299,22 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	float speed = 0.3f;
 
 	if ((glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)) {
-		player_position += speed * glm::normalize(glm::cross(looking_position, up));
-		//player_position.x += cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		//player_position.z += sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		player_position = check_collision(player_position.x, player_position.z);
+		glm::vec3 xz = player_position + speed * glm::normalize(glm::cross(looking_position, up));
+		player_position = check_collision(xz.x, xz.z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)) {
-		player_position -= speed * glm::normalize(glm::cross(looking_position, up));
-		//player_position.x -= cos(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		//player_position.z -= sin(glm::radians(Yaw + 90.0f)) * cos(glm::radians(Pitch + 90.0f));
-		player_position = check_collision(player_position.x, player_position.z);
+		glm::vec3 xz = player_position - speed * glm::normalize(glm::cross(looking_position, up));
+		player_position = check_collision(xz.x, xz.z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)) {
-		player_position.x += looking_position.x * speed;
-		player_position.z += looking_position.z * speed;
-		player_position = check_collision(player_position.x, player_position.z);
+		float x = player_position.x + looking_position.x * speed;
+		float z = player_position.z + looking_position.z * speed;
+		player_position = check_collision(x, z);
 	}
 	if ((glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)) {
-		player_position.x -= looking_position.x * speed;
-		player_position.z -= looking_position.z * speed;
-		player_position = check_collision(player_position.x, player_position.z);
-
+		float x = player_position.x - looking_position.x * speed;
+		float z = player_position.z - looking_position.z * speed;
+		player_position = check_collision(x, z);
 	}
 	std::cout << "Player position: " << player_position.x << " " << player_position.y << " " << player_position.z << " ";
 }
