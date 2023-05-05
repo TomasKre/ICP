@@ -25,6 +25,7 @@
 // OpenGL math
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <irrklang/irrKlang.h>
 
 void init_glew(void);
 void init_glfw(void);
@@ -44,6 +45,8 @@ struct vertex {
 	glm::vec3 position; // Vertex pos
 	glm::vec3 color; // Color
 };
+
+irrklang::ISoundEngine* engine = irrklang::createIrrKlangDevice();
 
 void va_setup(int index);
 bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords);
@@ -96,6 +99,8 @@ GLfloat Roll = 0.0f;
 GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
+int step_delay = 0;
+bool ouch_ready = true;
 
 const int n_objects = 12;
 GLuint VAO[n_objects];
@@ -167,7 +172,17 @@ int main()
 	glAttachShader(prog_h, FS_h);
 	glLinkProgram(prog_h);
 	getProgramInfoLog(prog_h);
+
 	glUseProgram(prog_h);
+
+	GLint success = 0;
+	std::cout << "Success false = " << GL_FALSE << std::endl;
+	glGetShaderiv(VS_h, GL_COMPILE_STATUS, &success);
+	std::cout << "Vertex shader " << success << std::endl;
+	glGetShaderiv(FS_h, GL_COMPILE_STATUS, &success);
+	std::cout << "Fragment shader " << success << std::endl;
+	glGetProgramiv(prog_h, GL_LINK_STATUS, &success);
+	std::cout << "Program linking " << success << std::endl;
 
 	// load objects
 	setup_objects();
@@ -325,17 +340,29 @@ glm::vec3 check_collision(float x, float z) {
 		//if object isn't in bounds of any object, move freely
 		player_position.x = x;
 		player_position.z = z;
+		ouch_ready = true;
 	}
 	else {
 		if (col[1]) {
+			if (ouch_ready) {
+				engine->play2D("sounds/ouch.mp3");
+				ouch_ready = false;
+			}
 			//if x step would not be in object bounds, move only on x axis
 			player_position.x = x;
 		}
 		if (col[2]) {
+			if (ouch_ready) {
+				engine->play2D("sounds/ouch.mp3");
+				ouch_ready = false;
+			}
 			//if z step would not be in object bounds, move only on z axis
 			player_position.z = z;
 		}
 	}
+	if (step_delay == 0 && ouch_ready) {		engine->play2D("sounds/step1.mp3");	}
+	if (step_delay == 8 && ouch_ready) {		engine->play2D("sounds/step2.mp3");	}
+	if(step_delay++ == 16){ step_delay = 0;}
 	return player_position;
 }
 
