@@ -5,7 +5,6 @@
 *.slo
 *.lo
 *.o
-*.obj
 
 # Precompiled Headers
 *.gch
@@ -51,5 +50,4 @@ FileContentIndex/
 v17/
 x64/
 .vs/
-resources/
 *.sln
