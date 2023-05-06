@@ -42,8 +42,9 @@ std::string getShaderInfoLog(const GLuint obj);
 std::string textFileRead(const std::string fn);
 
 GLuint gen_tex(std::string filepath);
-void tex_setup(int index);
+void tex_setup(int index, int tex);
 void make_shader(std::string vertex_shader, std::string fragment_shader, GLuint* shader);
+void draw_textured(glm::mat4 m_m, glm::mat4 v_m, glm::mat4 projectionMatrix);
 
 struct vertex {
   glm::vec3 position; // Vertex pos
@@ -56,7 +57,8 @@ struct tex_vertex {
   glm::vec2 texcoord;
 };
 
-std::vector<tex_vertex> tex_vertices;
+std::vector<tex_vertex> tex_vertices[4];
+GLuint texture_id[4];
 
 // create sound engine
 irrklang::ISoundEngine* engine = irrklang::createIrrKlangDevice();
@@ -116,7 +118,7 @@ bool ouch_ready = true;
 int move_count = 0;
 
 // objects values
-const int n_objects = 13;
+const int n_objects = 16;
 GLuint VAO[n_objects];
 GLuint VBO[n_objects];
 GLuint EBO[n_objects];
@@ -136,6 +138,8 @@ struct coords {
 const int n_col_obj = 9;
 std::vector<vertex> col_obj[n_col_obj];
 coords objects_coords[n_col_obj];
+
+GLuint prog_h, prog_tex;
 
 int main()
 {
@@ -166,12 +170,10 @@ int main()
   glEnable(GL_CULL_FACE);
 
   // create shaders
-  GLuint prog_h;
   std::cout << "BASIC SHADER" << '\n';
   make_shader("resources/my.vert", "resources/my.frag", &prog_h);
   glUseProgram(prog_h);
 
-  GLuint prog_tex;
   std::cout << "TEXTURE SHADER" << '\n';
   make_shader("resources/texture.vert", "resources/texture.frag", &prog_tex);
 
@@ -198,7 +200,11 @@ int main()
   // set visible area
   glViewport(0, 0, width, height);
 
-  GLuint texture_id = gen_tex("resources/tex/box.png");
+  texture_id[0] = gen_tex("resources/tex/box.png");
+  texture_id[1] = gen_tex("resources/tex/concrete.png");
+  texture_id[2] = gen_tex("resources/tex/brick.png");
+  texture_id[3] = gen_tex("resources/tex/missing.png");
+
   while (!glfwWindowShouldClose(globals.window)) {
 
     glm::mat4 projectionMatrix = glm::perspective(
@@ -234,7 +240,7 @@ int main()
       glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
       // Use buffers
-      for (int i = 1; i < n_objects - 3; i++) {
+      for (int i = 1; i < n_objects - 6; i++) {
         glBindVertexArray(VAO[i]);
         glDrawElements(GL_TRIANGLES, indices_array[i].size(), GL_UNSIGNED_INT, 0);
       }
@@ -273,22 +279,7 @@ int main()
       glUniformMatrix4fv(glGetUniformLocation(prog_h, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
 
       // textured object draw
-      glUseProgram(prog_tex);
-      glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
-      glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
-      glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uP_m"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-
-      //set texture unit
-      glActiveTexture(GL_TEXTURE0);
-
-      //send texture unit number to FS
-      glUniform1i(glGetUniformLocation(prog_tex, "tex0"), 0);
-
-      // draw object using VAO (Bind+DrawElements+Unbind)
-      glBindVertexArray(VAO[0]);
-      glBindTexture(GL_TEXTURE_2D, texture_id);
-      glDrawElements(GL_TRIANGLES, indices_array[0].size(), GL_UNSIGNED_INT, 0);
-      glUseProgram(prog_h);
+      draw_textured(m_m, v_m, projectionMatrix);
     }
     // Prohodit buffery k vykreslení a naèítání, zaznamenat eventy
     glfwSwapBuffers(globals.window);
@@ -779,14 +770,34 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
 }
 
 void setup_objects() {
-  // TODO vùbec netušim jak to má fungovat a když nìco zmìnim tak ten trojuhelník zmizí nebo je divnej
-  tex_vertices.push_back({ {-10.0f, -10.0f, 0.0f }, glm::vec2(-10.0f, -10.0f) });
-  tex_vertices.push_back({ {-10.0f, -9.0f, 0.0f }, glm::vec2(-10.0f, -9.0f) });
-  tex_vertices.push_back({ { -9.0f, -10.0f, 0.0f}, glm::vec2(-9.0f, -10.0f) });
-  tex_vertices.push_back({ { 10.0f, -1.0f, -10.0f}, glm::vec2(0.0f, 0.0f) });
-  indices_array[0] = { 2, 1, 0 };
+  // textured 0
+  tex_vertices[0].push_back({{-10.0f, -1.0f, -10.0f}, glm::vec2(-10.0f, -10.0f)});
+  tex_vertices[0].push_back({ { -10.0f, -1.0f, 10.0f}, glm::vec2(-10.0f, 10.0f) });
+  tex_vertices[0].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  indices_array[0] = { 0, 1, 2};
 
-  tex_setup(0);
+  tex_setup(0, 0);
+  // textured 1
+  tex_vertices[1].push_back({ { 10.0f, -1.0f, 10.0f }, glm::vec2(-10.0f, 10.0f) });
+  tex_vertices[1].push_back({ { 10.0f, -1.0f, -10.0f}, glm::vec2(10.0f, 10.0f) });
+  tex_vertices[1].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  indices_array[13] = { 0, 1, 2 };
+
+  tex_setup(13, 1);
+  // textured 2
+  tex_vertices[2].push_back({ { 10.0f, -1.0f, -10.0f }, glm::vec2(-10.0f, 10.0f) });
+  tex_vertices[2].push_back({ { -10.0f, -1.0f, -10.0f}, glm::vec2(-10.0f, -10.0f) });
+  tex_vertices[2].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  indices_array[14] = { 0, 1, 2 };
+ 
+  tex_setup(14, 2);
+  // textured 3
+  tex_vertices[3].push_back({ { -10.0f, -1.0f, 10.0f}, glm::vec2(-10.0f, 10.0f) });
+  tex_vertices[3].push_back({ { 10.0f, -1.0f, 10.0f }, glm::vec2(10.0f, 10.0f) });
+  tex_vertices[3].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  indices_array[15] = { 0, 1, 2 };
+
+  tex_setup(15, 3);
 
   //setup color, scale and coordinates for object
   colors[1] = { 0.3, 0.3, 0.3 };
@@ -847,7 +858,7 @@ void setup_objects() {
 
   va_setup(8);
 
-  colors[9] = { 0.5, 0, 0.5 };
+  colors[9] = { 0.7, 0.7, 0.0 };
   scales[9] = { 2, 1, 2 };
   coordinates[9] = { 0, -0.5, 0 };
 
@@ -940,7 +951,7 @@ GLuint gen_tex(std::string filepath)
   return ID;
 }
 
-void tex_setup(int index) {
+void tex_setup(int index, int tex) {
   // Generate the VAO and VBO
   glGenVertexArrays(1, &VAO[index]);
   glGenBuffers(1, &VBO[index]);
@@ -950,13 +961,13 @@ void tex_setup(int index) {
   // Bind the VBO, set type as GL_ARRAY_BUFFER
   glBindBuffer(GL_ARRAY_BUFFER, VBO[index]);
   // Fill-in data into the VBO
-  glBufferData(GL_ARRAY_BUFFER, tex_vertices.size() * sizeof(tex_vertex), tex_vertices.data(), GL_DYNAMIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, tex_vertices[tex].size() * sizeof(tex_vertex), tex_vertices[tex].data(), GL_DYNAMIC_DRAW);
   // Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO[index]);
   // Fill-in data into the EBO
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_array[0].size() * sizeof(GLuint), indices_array[0].data(), GL_DYNAMIC_DRAW);
   // Set Vertex Attribute to explain OpenGL how to interpret the VBO
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 32, (void*)(0 + offsetof(tex_vertex, position)));
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(tex_vertex), (void*)(0 + offsetof(tex_vertex, position)));
   // Enable the Vertex Attribute 0 = position
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(tex_vertex), (void*)(0 + offsetof(tex_vertex, texcoord)));
@@ -1002,4 +1013,35 @@ void make_shader(std::string vertex_shader, std::string fragment_shader, GLuint*
   std::cout << "Fragment shader " << success << std::endl;
   glGetProgramiv(prog_h, GL_LINK_STATUS, &success);
   std::cout << "Program linking " << success << std::endl;
+}
+
+void draw_textured(glm::mat4 m_m, glm::mat4 v_m, glm::mat4 projectionMatrix){
+  glUseProgram(prog_tex);
+  glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
+  glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
+  glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uP_m"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+
+  //set texture unit
+  glActiveTexture(GL_TEXTURE0);
+
+  //send texture unit number to FS
+  glUniform1i(glGetUniformLocation(prog_tex, "tex0"), 0);
+
+  // draw object using VAO (Bind+DrawElements+Unbind)
+  glBindVertexArray(VAO[0]);
+  glBindTexture(GL_TEXTURE_2D, texture_id[0]);
+  glDrawElements(GL_TRIANGLES, indices_array[0].size(), GL_UNSIGNED_INT, 0);
+
+  glBindVertexArray(VAO[13]);
+  glBindTexture(GL_TEXTURE_2D, texture_id[1]);
+  glDrawElements(GL_TRIANGLES, indices_array[13].size(), GL_UNSIGNED_INT, 0);
+
+  glBindVertexArray(VAO[14]);
+  glBindTexture(GL_TEXTURE_2D, texture_id[2]);
+  glDrawElements(GL_TRIANGLES, indices_array[14].size(), GL_UNSIGNED_INT, 0);
+
+  glBindVertexArray(VAO[15]);
+  glBindTexture(GL_TEXTURE_2D, texture_id[3]);
+  glDrawElements(GL_TRIANGLES, indices_array[15].size(), GL_UNSIGNED_INT, 0);
+  glUseProgram(prog_h);
 }
