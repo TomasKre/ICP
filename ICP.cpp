@@ -41,16 +41,28 @@ std::string getProgramInfoLog(const GLuint obj);
 std::string getShaderInfoLog(const GLuint obj);
 std::string textFileRead(const std::string fn);
 
+GLuint gen_tex(std::string filepath);
+void tex_setup(int index);
+void make_shader(std::string vertex_shader, std::string fragment_shader, GLuint* shader);
+
 struct vertex {
   glm::vec3 position; // Vertex pos
   glm::vec3 color; // Color
 };
 
+// vertex with texture
+struct tex_vertex {
+  glm::vec3 position;
+  glm::vec2 texcoord;
+};
+
+std::vector<tex_vertex> tex_vertices;
+
+// create sound engine
 irrklang::ISoundEngine* engine = irrklang::createIrrKlangDevice();
 
 void va_setup(int index);
 bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords);
-GLuint gen_tex(std::string filepath);
 
 glm::vec3 check_collision(float x, float z);
 std::array<bool, 3> check_objects_collisions(float x, float z);
@@ -85,8 +97,6 @@ s_globals globals;
 std::mutex img_access_mutex;
 bool image_proccessing_alive;
 
-//glm::vec4 color(0, 0, 0, 1);
-
 // player & position
 glm::vec3 player_position(-10.0f, 1.0f, -10.0f);
 glm::vec3 looking_position(10.0f, 1.0f, 10.0f);
@@ -100,20 +110,23 @@ GLfloat lastxpos = 0.0f;
 GLfloat lastypos = 0.0f;
 #define array_cnt(a) ((unsigned int)(sizeof(a) / sizeof(a[0])))
 
+// movement and sound help variables
 int step_delay = 0;
 bool ouch_ready = true;
 int move_count = 0;
 
+// objects values
 const int n_objects = 13;
 GLuint VAO[n_objects];
 GLuint VBO[n_objects];
 GLuint EBO[n_objects];
 std::vector<vertex> vertex_array[n_objects];
-std::vector <GLuint> indices_array[n_objects];
+std::vector<GLuint> indices_array[n_objects];
 glm::vec3 colors[n_objects];
 glm::vec3 scales[n_objects];
 glm::vec3 coordinates[n_objects];
 
+// objects with collisions
 struct coords {
   float min_x;
   float max_x;
@@ -153,38 +166,14 @@ int main()
   glEnable(GL_CULL_FACE);
 
   // create shaders
-  GLuint VS_h, FS_h, prog_h;
-  VS_h = glCreateShader(GL_VERTEX_SHADER);
-  FS_h = glCreateShader(GL_FRAGMENT_SHADER);
-
-  std::string VSsrc = textFileRead("resources/my.vert");
-  const char* VS_string = VSsrc.c_str();
-  std::string FSsrc = textFileRead("resources/my.frag");
-  const char* FS_string = FSsrc.c_str();
-  glShaderSource(VS_h, 1, &VS_string, NULL);
-  glShaderSource(FS_h, 1, &FS_string, NULL);
-
-  // compile and use shaders
-  glCompileShader(VS_h);
-  getShaderInfoLog(VS_h);
-  glCompileShader(FS_h);
-  getShaderInfoLog(FS_h);
-  prog_h = glCreateProgram();
-  glAttachShader(prog_h, VS_h);
-  glAttachShader(prog_h, FS_h);
-  glLinkProgram(prog_h);
-  getProgramInfoLog(prog_h);
-
+  GLuint prog_h;
+  std::cout << "BASIC SHADER" << '\n';
+  make_shader("resources/my.vert", "resources/my.frag", &prog_h);
   glUseProgram(prog_h);
 
-  GLint success = 0;
-  std::cout << "Success false = " << GL_FALSE << std::endl;
-  glGetShaderiv(VS_h, GL_COMPILE_STATUS, &success);
-  std::cout << "Vertex shader " << success << std::endl;
-  glGetShaderiv(FS_h, GL_COMPILE_STATUS, &success);
-  std::cout << "Fragment shader " << success << std::endl;
-  glGetProgramiv(prog_h, GL_LINK_STATUS, &success);
-  std::cout << "Program linking " << success << std::endl;
+  GLuint prog_tex;
+  std::cout << "TEXTURE SHADER" << '\n';
+  make_shader("resources/texture.vert", "resources/texture.frag", &prog_tex);
 
   // load objects
   setup_objects();
@@ -209,6 +198,7 @@ int main()
   // set visible area
   glViewport(0, 0, width, height);
 
+  GLuint texture_id = gen_tex("resources/tex/box.png");
   while (!glfwWindowShouldClose(globals.window)) {
 
     glm::mat4 projectionMatrix = glm::perspective(
@@ -226,16 +216,10 @@ int main()
     {
       glUseProgram(prog_h);
 
-      // Uniform hodnota pro fragment shader pro mìnìní barvy
-      // Nutno v shaderech odebrat barvu pomocí vstupu do vertexu a nechat jen uniform ve frag shaderu
-      //color = glm::vec4(a, b, c, 1);
-      //glUniform4fv(glGetUniformLocation(prog_h, "color"), 1, glm::value_ptr(color));
-
       // Model Matrix
       glm::mat4 m_m = glm::identity<glm::mat4>();
 
       // modify Model matrix and send to shaders
-      //m_m = glm::translate(m_m, glm::vec3(width / 2.0, height / 2.0, 0.0));
       m_m = glm::scale(m_m, glm::vec3(2.0f));
 
       // pøedání do shaderu
@@ -250,7 +234,7 @@ int main()
       glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
       // Use buffers
-      for (int i = 0; i < n_objects - 3; i++) {
+      for (int i = 1; i < n_objects - 3; i++) {
         glBindVertexArray(VAO[i]);
         glDrawElements(GL_TRIANGLES, indices_array[i].size(), GL_UNSIGNED_INT, 0);
       }
@@ -271,7 +255,7 @@ int main()
       glDrawElements(GL_TRIANGLES, indices_array[11].size(), GL_UNSIGNED_INT, 0);
       m_m = temp;
 
-      // move teapot on edges
+      // move teapot on edge
       temp = m_m;
       int edge = 21000;
       glm::vec3 change = (move_count < edge * 2) ?
@@ -286,6 +270,25 @@ int main()
       if (move_count == edge * 4) {
         move_count = 0;
       }
+      glUniformMatrix4fv(glGetUniformLocation(prog_h, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
+
+      // textured object draw
+      glUseProgram(prog_tex);
+      glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
+      glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
+      glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uP_m"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+
+      //set texture unit
+      glActiveTexture(GL_TEXTURE0);
+
+      //send texture unit number to FS
+      glUniform1i(glGetUniformLocation(prog_tex, "tex0"), 0);
+
+      // draw object using VAO (Bind+DrawElements+Unbind)
+      glBindVertexArray(VAO[0]);
+      glBindTexture(GL_TEXTURE_2D, texture_id);
+      glDrawElements(GL_TRIANGLES, indices_array[0].size(), GL_UNSIGNED_INT, 0);
+      glUseProgram(prog_h);
     }
     // Prohodit buffery k vykreslení a naèítání, zaznamenat eventy
     glfwSwapBuffers(globals.window);
@@ -376,7 +379,7 @@ glm::vec3 check_collision(float x, float z) {
   else {
     if (col[1]) {
       if (ouch_ready) {
-        engine->play2D("sounds/ouch.mp3");
+        engine->play2D("resources/sounds/ouch.mp3");
         ouch_ready = false;
       }
       //if x step would not be in object bounds, move only on x axis
@@ -384,15 +387,15 @@ glm::vec3 check_collision(float x, float z) {
     }
     if (col[2]) {
       if (ouch_ready) {
-        engine->play2D("sounds/ouch.mp3");
+        engine->play2D("resources/sounds/ouch.mp3");
         ouch_ready = false;
       }
       //if z step would not be in object bounds, move only on z axis
       player_position.z = z;
     }
   }
-  if (step_delay == 0 && ouch_ready) { engine->play2D("sounds/step1.mp3"); }
-  if (step_delay == 8 && ouch_ready) { engine->play2D("sounds/step2.mp3"); }
+  if (step_delay == 0 && ouch_ready) { engine->play2D("resources/sounds/step1.mp3"); }
+  if (step_delay == 8 && ouch_ready) { engine->play2D("resources/sounds/step2.mp3"); }
   if (step_delay++ == 16) { step_delay = 0; }
   return player_position;
 }
@@ -509,6 +512,14 @@ static void init_glfw(void)
 
   // set error callback first
   glfwSetErrorCallback(error_callback);
+
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_POLYGON_SMOOTH);
+  glEnable(GL_LINE_SMOOTH);
+
+  // assume ALL objects are non-transparent 
+  glEnable(GL_CULL_FACE);
+
 
   //initialize GLFW library
   int glfw_ret = glfwInit();
@@ -669,33 +680,31 @@ std::string getProgramInfoLog(const GLuint obj) {
 }
 
 void va_setup(int index) {
-  {
-    // Generate the VAO and VBO
-    glGenVertexArrays(1, &VAO[index]);
-    glGenBuffers(1, &VBO[index]);
-    glGenBuffers(1, &EBO[index]);
-    // Bind VAO (set as the current)
-    glBindVertexArray(VAO[index]);
-    // Bind the VBO, set type as GL_ARRAY_BUFFER
-    glBindBuffer(GL_ARRAY_BUFFER, VBO[index]);
-    // Fill-in data into the VBO
-    glBufferData(GL_ARRAY_BUFFER, vertex_array[index].size() * sizeof(vertex), vertex_array[index].data(), GL_DYNAMIC_DRAW);
-    // Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO[index]);
-    // Fill-in data into the EBO
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_array[index].size() * sizeof(GLuint), indices_array[index].data(), GL_DYNAMIC_DRAW);
-    // Set Vertex Attribute to explain OpenGL how to interpret the VBO
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
-    // Enable the Vertex Attribute 0 = position
-    glEnableVertexAttribArray(0);
-    // Set end enable Vertex Attribute 1 = Texture Coordinates
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
-    glEnableVertexAttribArray(1);
-    // Bind VBO and VAO to 0 to prevent unintended modification
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  }
+  // Generate the VAO and VBO
+  glGenVertexArrays(1, &VAO[index]);
+  glGenBuffers(1, &VBO[index]);
+  glGenBuffers(1, &EBO[index]);
+  // Bind VAO (set as the current)
+  glBindVertexArray(VAO[index]);
+  // Bind the VBO, set type as GL_ARRAY_BUFFER
+  glBindBuffer(GL_ARRAY_BUFFER, VBO[index]);
+  // Fill-in data into the VBO
+  glBufferData(GL_ARRAY_BUFFER, vertex_array[index].size() * sizeof(vertex), vertex_array[index].data(), GL_DYNAMIC_DRAW);
+  // Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO[index]);
+  // Fill-in data into the EBO
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_array[index].size() * sizeof(GLuint), indices_array[index].data(), GL_DYNAMIC_DRAW);
+  // Set Vertex Attribute to explain OpenGL how to interpret the VBO
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, position)));
+  // Enable the Vertex Attribute 0 = position
+  glEnableVertexAttribArray(0);
+  // Set end enable Vertex Attribute 1 = Texture Coordinates
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
+  glEnableVertexAttribArray(1);
+  // Bind VBO and VAO to 0 to prevent unintended modification
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <GLuint>& indices, glm::vec3 color, glm::vec3 scale, glm::vec3 coords) {
@@ -769,172 +778,87 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
   return true;
 }
 
-GLuint gen_tex(std::string filepath)
-{
-  GLuint ID;
-  cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED); // Read with (potential) Alpha
-  if (image.channels() != 4) exit(-1);  // Check the image, we want Alpha in this example    
-
-  // Generates an OpenGL texture object
-  glGenTextures(1, &ID);
-
-  // Assigns the texture to a Texture Unit
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, ID);
-
-  // Texture data alignment for transfer (single byte = basic, slow, but safe option; usually not necessary) 
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-  // Assigns the image to the OpenGL Texture object
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.cols, image.rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, image.data);
-
-  // Configures the type of algorithm that is used to make the image smaller or bigger
-  // nearest neighbor - ugly & fast 
-  //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);  
-  //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-  // bilinear - nicer & slower
-  //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
-  //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-  // MIPMAP filtering + automatic MIPMAP generation - nicest, needs more memory. Notice: MIPMAP is only for image minifying.
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // bilinear magnifying
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // trilinear minifying
-  glGenerateMipmap(GL_TEXTURE_2D);  //Generate mipmaps now.
-
-  // Configures the way the texture repeats
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-  // Unbinds the OpenGL Texture object so that it can't accidentally be modified
-  glBindTexture(GL_TEXTURE_2D, 0);
-  return ID;
-}
-
 void setup_objects() {
-  // 20x20 floor
-  float y = 0.0f;
-  float r = 1.0f;
-  float g = 0.0f;
-  float b = 0.0f;
-  int index = 0;
-  for (float x = -10.0; x < 10.0; x++)
-  {
-    //y = round((unif(rng)) * 1000 - 500) / 50;
-    y = -1.0f;
-    for (float z = -10.0; z < 10.0; z++)
-    {
+  // TODO vùbec netušim jak to má fungovat a když nìco zmìnim tak ten trojuhelník zmizí nebo je divnej
+  tex_vertices.push_back({ {-10.0f, -10.0f, 0.0f }, glm::vec2(-10.0f, -10.0f) });
+  tex_vertices.push_back({ {-10.0f, -9.0f, 0.0f }, glm::vec2(-10.0f, -9.0f) });
+  tex_vertices.push_back({ { -9.0f, -10.0f, 0.0f}, glm::vec2(-9.0f, -10.0f) });
+  tex_vertices.push_back({ { 10.0f, -1.0f, -10.0f}, glm::vec2(0.0f, 0.0f) });
+  indices_array[0] = { 2, 1, 0 };
 
-      vertex_array[0].push_back({ {x, y, z}, {r, g, b} });
-      vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
-      vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
-      vertex_array[0].push_back({ { x + 1, y, z + 1}, { r, g, b } });
-      vertex_array[0].push_back({ { x + 1, y, z }, { r, g, b } });
-      vertex_array[0].push_back({ { x, y, z + 1}, { r, g, b } });
-      for (int j = 0; j < 6; j++)
-      {
-        indices_array[0].push_back(index + j);
-      }
-      index += 6;
-      if (r > 0.0f) {
-        r = 0.0f;
-      }
-      else {
-        r = 1.0f;
-      }
-      if (g > 0.0f) {
-        g = 0.0f;
-      }
-      else {
-        g = 1.0f;
-      }
-    }
-    if (r > 0.0f) {
-      r = 0.0f;
-    }
-    else {
-      r = 1.0f;
-    }
-    if (g > 0.0f) {
-      g = 0.0f;
-    }
-    else {
-      g = 1.0f;
-    }
-  }
-
-  va_setup(0);
+  tex_setup(0);
 
   //setup color, scale and coordinates for object
   colors[1] = { 0.3, 0.3, 0.3 };
   scales[1] = { 1, 1, 1 };
   coordinates[1] = { -10.5, -0.5, 10.5 };
   //load object from file
-  loadOBJ("obj/cube.obj", vertex_array[1], indices_array[1], colors[1], scales[1], coordinates[1]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[1], indices_array[1], colors[1], scales[1], coordinates[1]);
   //setup vertex array
   va_setup(1);
 
-  colors[2] = { 0.5, 0, 0.5 };
-  scales[2] = { 2, 1, 2 };
-  coordinates[2] = { 0, -0.5, 0 };
-
-  loadOBJ("obj/cube.obj", vertex_array[2], indices_array[2], colors[2], scales[2], coordinates[2]);
+  colors[2] = { 0.3, 0.3, 0.3 };
+  scales[2] = { 1, 1, 1 };
+  coordinates[2] = { 10.5, -0.5, -10.5 };
+  loadOBJ("resources/obj/cube.obj", vertex_array[2], indices_array[2], colors[2], scales[2], coordinates[2]);
 
   va_setup(2);
+
 
   colors[3] = { 0.3, 0.3, 0.3 };
   scales[3] = { 1, 1, 20 };
   coordinates[3] = { -10.5, -0.5, 0 };
-  loadOBJ("obj/cube.obj", vertex_array[3], indices_array[3], colors[3], scales[3], coordinates[3]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[3], indices_array[3], colors[3], scales[3], coordinates[3]);
 
   va_setup(3);
 
   colors[4] = { 0.3, 0.3, 0.3 };
   scales[4] = { 1, 1, 20 };
   coordinates[4] = { 10.5, -0.5, 0 };
-  loadOBJ("obj/cube.obj", vertex_array[4], indices_array[4], colors[4], scales[4], coordinates[4]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[4], indices_array[4], colors[4], scales[4], coordinates[4]);
 
   va_setup(4);
 
   colors[5] = { 0.3, 0.3, 0.3 };
   scales[5] = { 20, 1, 1 };
   coordinates[5] = { 0, -0.5, -10.5 };
-  loadOBJ("obj/cube.obj", vertex_array[5], indices_array[5], colors[5], scales[5], coordinates[5]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[5], indices_array[5], colors[5], scales[5], coordinates[5]);
 
   va_setup(5);
 
   colors[6] = { 0.3, 0.3, 0.3 };
   scales[6] = { 20, 1, 1 };
   coordinates[6] = { 0, -0.5, 10.5 };
-  loadOBJ("obj/cube.obj", vertex_array[6], indices_array[6], colors[6], scales[6], coordinates[6]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[6], indices_array[6], colors[6], scales[6], coordinates[6]);
 
   va_setup(6);
 
   colors[7] = { 0.3, 0.3, 0.3 };
   scales[7] = { 1, 1, 1 };
   coordinates[7] = { 10.5, -0.5, 10.5 };
-  loadOBJ("obj/cube.obj", vertex_array[7], indices_array[7], colors[7], scales[7], coordinates[7]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[7], indices_array[7], colors[7], scales[7], coordinates[7]);
 
   va_setup(7);
 
   colors[8] = { 0.3, 0.3, 0.3 };
   scales[8] = { 1, 1, 1 };
   coordinates[8] = { -10.5, -0.5, -10.5 };
-  loadOBJ("obj/cube.obj", vertex_array[8], indices_array[8], colors[8], scales[8], coordinates[8]);
+  loadOBJ("resources/obj/cube.obj", vertex_array[8], indices_array[8], colors[8], scales[8], coordinates[8]);
 
   va_setup(8);
 
-  colors[9] = { 0.3, 0.3, 0.3 };
-  scales[9] = { 1, 1, 1 };
-  coordinates[9] = { 10.5, -0.5, -10.5 };
-  loadOBJ("obj/cube.obj", vertex_array[9], indices_array[9], colors[9], scales[9], coordinates[9]);
+  colors[9] = { 0.5, 0, 0.5 };
+  scales[9] = { 2, 1, 2 };
+  coordinates[9] = { 0, -0.5, 0 };
+
+  loadOBJ("resources/obj/cube.obj", vertex_array[9], indices_array[9], colors[9], scales[9], coordinates[9]);
 
   va_setup(9);
 
   colors[10] = { 1, 1, 1 };
   scales[10] = { 2, 2, 2 };
   coordinates[10] = { -20, 15, -20 };
-  loadOBJ("obj/sphere.obj", vertex_array[10], indices_array[10], colors[10], scales[10], coordinates[10]);
+  loadOBJ("resources/obj/sphere.obj", vertex_array[10], indices_array[10], colors[10], scales[10], coordinates[10]);
 
   va_setup(10);
 
@@ -942,7 +866,7 @@ void setup_objects() {
   scales[11] = { 0.1, 0.1, 0.1 };
   coordinates[11] = { 7, 3, 7 };
 
-  loadOBJ("obj/teapot.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
+  loadOBJ("resources/obj/teapot.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
 
   va_setup(11);
 
@@ -950,7 +874,7 @@ void setup_objects() {
   scales[11] = { 0.1, 0.1, 0.1 };
   coordinates[11] = { 7, 3, 7 };
 
-  loadOBJ("obj/teapot.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
+  loadOBJ("resources/obj/teapot.obj", vertex_array[11], indices_array[11], colors[11], scales[11], coordinates[11]);
 
   va_setup(11);
 
@@ -958,10 +882,9 @@ void setup_objects() {
   scales[12] = { 0.1, 0.1, 0.1 };
   coordinates[12] = { -10.5, 0.0, -10.5 };
 
-  loadOBJ("obj/teapot.obj", vertex_array[12], indices_array[12], colors[12], scales[12], coordinates[12]);
+  loadOBJ("resources/obj/teapot.obj", vertex_array[12], indices_array[12], colors[12], scales[12], coordinates[12]);
 
   va_setup(12);
-
 
   //choose objects with collisions
   int j = 0;
@@ -970,4 +893,113 @@ void setup_objects() {
     j++;
   }
   init_object_coords();
+}
+
+GLuint gen_tex(std::string filepath)
+{
+  GLuint ID;
+  cv::Mat image = cv::imread(filepath);
+
+  // Generates an OpenGL texture object
+  glGenTextures(1, &ID);
+
+  // Assigns the texture to a Texture Unit
+  glBindTexture(GL_TEXTURE_2D, ID);
+
+  // Texture data alignment for transfer (single byte = basic, slow, but safe option; usually not necessary) 
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+  glHint(GL_TEXTURE_COMPRESSION_HINT, GL_NICEST);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, image.data);
+  int compressed;
+  GLint internalformat, compressed_size;
+  glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_COMPRESSED_ARB, &compressed);
+  /* if the compression has been successful */
+  if (compressed == GL_TRUE)
+  {
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalformat);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_COMPRESSED_IMAGE_SIZE_ARB, &compressed_size);
+    std::cout << "ORIGINAL: " << image.total() * image.elemSize() << " COMPRESSED: " << compressed_size << " INTERNAL FORMAT: " << internalformat << std::endl;
+  }
+
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  // Configures the way the texture repeats
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+  glGenerateMipmap(GL_TEXTURE_2D);
+
+  // Unbinds the OpenGL Texture object so that it can't accidentally be modified
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  return ID;
+}
+
+void tex_setup(int index) {
+  // Generate the VAO and VBO
+  glGenVertexArrays(1, &VAO[index]);
+  glGenBuffers(1, &VBO[index]);
+  glGenBuffers(1, &EBO[index]);
+  // Bind VAO (set as the current)
+  glBindVertexArray(VAO[index]);
+  // Bind the VBO, set type as GL_ARRAY_BUFFER
+  glBindBuffer(GL_ARRAY_BUFFER, VBO[index]);
+  // Fill-in data into the VBO
+  glBufferData(GL_ARRAY_BUFFER, tex_vertices.size() * sizeof(tex_vertex), tex_vertices.data(), GL_DYNAMIC_DRAW);
+  // Bind EBO, set type GL_ELEMENT_ARRAY_BUFFER
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO[index]);
+  // Fill-in data into the EBO
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_array[0].size() * sizeof(GLuint), indices_array[0].data(), GL_DYNAMIC_DRAW);
+  // Set Vertex Attribute to explain OpenGL how to interpret the VBO
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 32, (void*)(0 + offsetof(tex_vertex, position)));
+  // Enable the Vertex Attribute 0 = position
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(tex_vertex), (void*)(0 + offsetof(tex_vertex, texcoord)));
+  glEnableVertexAttribArray(1);
+  // Bind VBO and VAO to 0 to prevent unintended modification
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void make_shader(std::string vertex_shader, std::string fragment_shader, GLuint* shader) {
+  GLuint VS_h, FS_h, prog_h;
+  VS_h = glCreateShader(GL_VERTEX_SHADER);
+  FS_h = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // vert
+  std::string VSsrc = textFileRead(vertex_shader);
+  const char* VS_string = VSsrc.c_str();
+  // frag
+  std::string FSsrc = textFileRead(fragment_shader);
+  const char* FS_string = FSsrc.c_str();
+  glShaderSource(VS_h, 1, &VS_string, NULL);
+  glShaderSource(FS_h, 1, &FS_string, NULL);
+
+  // compile and use shaders
+  glCompileShader(VS_h);
+  getShaderInfoLog(VS_h);
+  glCompileShader(FS_h);
+  getShaderInfoLog(FS_h);
+  prog_h = glCreateProgram();
+  glAttachShader(prog_h, VS_h);
+  glAttachShader(prog_h, FS_h);
+  glLinkProgram(prog_h);
+  getProgramInfoLog(prog_h);
+  *shader = prog_h;
+
+  // check if vertex shader, fragment shader compiled successfuly and program linked
+  GLint success = 0;
+  std::cout << "Success false = " << GL_FALSE << std::endl;
+  glGetShaderiv(VS_h, GL_COMPILE_STATUS, &success);
+  std::cout << "Vertex shader " << success << std::endl;
+  glGetShaderiv(FS_h, GL_COMPILE_STATUS, &success);
+  std::cout << "Fragment shader " << success << std::endl;
+  glGetProgramiv(prog_h, GL_LINK_STATUS, &success);
+  std::cout << "Program linking " << success << std::endl;
 }
