@@ -119,6 +119,7 @@ int move_count = 0;
 
 // objects values
 const int n_objects = 16;
+
 GLuint VAO[n_objects];
 GLuint VBO[n_objects];
 GLuint EBO[n_objects];
@@ -135,7 +136,7 @@ struct coords {
   float min_z;
   float max_z;
 };
-const int n_col_obj = 9;
+const int n_col_obj = 1;//9;
 std::vector<vertex> col_obj[n_col_obj];
 coords objects_coords[n_col_obj];
 
@@ -143,7 +144,6 @@ GLuint prog_h, prog_tex;
 
 int main()
 {
-
   std::mt19937_64 rng;
   // initialize the random number generator with time-dependent seed
   uint64_t timeSeed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -208,7 +208,7 @@ int main()
   while (!glfwWindowShouldClose(globals.window)) {
 
     glm::mat4 projectionMatrix = glm::perspective(
-      glm::radians(globals.fov), // The vertical Field of View, in radians: the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
+      glm::radians(globals.fov), // The vertical Field of View, in radians: the amount of "zoom". Think "camera lens". Usually between 90Â° (extra wide) and 30Â° (quite zoomed in)
       ratio,			     // Aspect Ratio. Depends on the size of your window.
       0.1f,                // Near clipping plane. Keep as big as possible, or you'll get precision issues.
       20000.0f              // Far clipping plane. Keep as little as possible.
@@ -228,7 +228,7 @@ int main()
       // modify Model matrix and send to shaders
       m_m = glm::scale(m_m, glm::vec3(2.0f));
 
-      // pøedání do shaderu
+      // pÃ¸edÃ¡nÃ­ do shaderu
       glUniformMatrix4fv(glGetUniformLocation(prog_h, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
 
       // View matrix
@@ -236,7 +236,7 @@ int main()
         glm::vec3(player_position + looking_position), //where to look
         up  //UP direction
       );
-      // pøedání do shaderu
+      // pÃ¸edÃ¡nÃ­ do shaderu
       glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
       // Use buffers
@@ -281,7 +281,7 @@ int main()
       // textured object draw
       draw_textured(m_m, v_m, projectionMatrix);
     }
-    // Prohodit buffery k vykreslení a naèítání, zaznamenat eventy
+    // Prohodit buffery k vykreslenÃ­ a naÃ¨Ã­tÃ¡nÃ­, zaznamenat eventy
     glfwSwapBuffers(globals.window);
     glfwPollEvents();
 
@@ -289,7 +289,7 @@ int main()
     frame_cnt++;
     double now = glfwGetTime();
 
-    // vypsání fps
+    // vypsÃ¡nÃ­ fps
     if ((now - globals.last_fps) > 1) {
       globals.last_fps = now;
       std::cout << "FPS: " << frame_cnt << std::endl;
@@ -906,7 +906,7 @@ void setup_objects() {
   init_object_coords();
 }
 
-GLuint gen_tex(std::string filepath)
+GLuint gen_tex0(std::string filepath)
 {
   GLuint ID;
   cv::Mat image = cv::imread(filepath);
