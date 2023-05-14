@@ -8,8 +8,6 @@ uniform mat4 uP_m;
 uniform mat4 uV_m;
 uniform mat4 uM_m;
 
-uniform mat4 model;
-
 out vec4 color;
 // flat out vec4 color; // bere first nebo last vertex barvu
 

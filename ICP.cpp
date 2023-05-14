@@ -56,7 +56,7 @@ struct vertex {
 struct tex_vertex {
   glm::vec3 position;
   glm::vec2 texcoord;
-  //glm::vec3 normal;
+  glm::vec3 normal;
 };
 
 std::vector<tex_vertex> tex_vertices[4];
@@ -796,31 +796,32 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
 }
 
 void setup_objects() {
+  glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
   // textured 0
-  tex_vertices[0].push_back({{-10.0f, -1.0f, -10.0f}, glm::vec2(-10.0f, -10.0f)});
-  tex_vertices[0].push_back({ { -10.0f, -1.0f, 10.0f}, glm::vec2(-10.0f, 10.0f) });
-  tex_vertices[0].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  tex_vertices[0].push_back({ {-10.0f, -1.0f, -10.0f}, glm::vec2(-10.0f, -10.0f), up });
+  tex_vertices[0].push_back({ { -10.0f, -1.0f, 10.0f}, glm::vec2(-10.0f, 10.0f), up });
+  tex_vertices[0].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f), up });
   indices_array[0] = { 0, 1, 2};
 
   tex_setup(0, 0);
   // textured 1
-  tex_vertices[1].push_back({ { 10.0f, -1.0f, 10.0f }, glm::vec2(-10.0f, 10.0f) });
-  tex_vertices[1].push_back({ { 10.0f, -1.0f, -10.0f}, glm::vec2(10.0f, 10.0f) });
-  tex_vertices[1].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  tex_vertices[1].push_back({ { 10.0f, -1.0f, 10.0f }, glm::vec2(-10.0f, 10.0f), up });
+  tex_vertices[1].push_back({ { 10.0f, -1.0f, -10.0f}, glm::vec2(10.0f, 10.0f), up });
+  tex_vertices[1].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f), up });
   indices_array[13] = { 0, 1, 2 };
 
   tex_setup(13, 1);
   // textured 2
-  tex_vertices[2].push_back({ { 10.0f, -1.0f, -10.0f }, glm::vec2(-10.0f, 10.0f) });
-  tex_vertices[2].push_back({ { -10.0f, -1.0f, -10.0f}, glm::vec2(-10.0f, -10.0f) });
-  tex_vertices[2].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  tex_vertices[2].push_back({ { 10.0f, -1.0f, -10.0f }, glm::vec2(-10.0f, 10.0f), up });
+  tex_vertices[2].push_back({ { -10.0f, -1.0f, -10.0f}, glm::vec2(-10.0f, -10.0f), up });
+  tex_vertices[2].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f), up });
   indices_array[14] = { 0, 1, 2 };
  
   tex_setup(14, 2);
   // textured 3
-  tex_vertices[3].push_back({ { -10.0f, -1.0f, 10.0f}, glm::vec2(-10.0f, 10.0f) });
-  tex_vertices[3].push_back({ { 10.0f, -1.0f, 10.0f }, glm::vec2(10.0f, 10.0f) });
-  tex_vertices[3].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f) });
+  tex_vertices[3].push_back({ { -10.0f, -1.0f, 10.0f}, glm::vec2(-10.0f, 10.0f), up });
+  tex_vertices[3].push_back({ { 10.0f, -1.0f, 10.0f }, glm::vec2(10.0f, 10.0f), up });
+  tex_vertices[3].push_back({ { 0.0f, -1.0f, 0.0f}, glm::vec2(0.0f, 0.0f), up });
   indices_array[15] = { 0, 1, 2 };
 
   tex_setup(15, 3);
@@ -998,6 +999,9 @@ void tex_setup(int index, int tex) {
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(tex_vertex), (void*)(0 + offsetof(tex_vertex, texcoord)));
   glEnableVertexAttribArray(1);
+  // TEST
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(tex_vertex), (void*)(0 + offsetof(tex_vertex, normal)));
+  glEnableVertexAttribArray(2);
   // Bind VBO and VAO to 0 to prevent unintended modification
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
@@ -1046,6 +1050,13 @@ void draw_textured(glm::mat4 m_m, glm::mat4 v_m, glm::mat4 projectionMatrix){
   glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uM_m"), 1, GL_FALSE, glm::value_ptr(m_m));
   glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
   glUniformMatrix4fv(glGetUniformLocation(prog_tex, "uP_m"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+
+  // set light color for shader
+  glUniform4f(glGetUniformLocation(prog_tex, "lightColor"), 1.0f, 0.5f, 0.5f, 1.0f);
+  // set light pos in above player for shaders
+  glUniform3f(glGetUniformLocation(prog_tex, "lightPos"), player_position.x, player_position.y + 2.0f, player_position.z);
+  // set camera pos for shaders
+  glUniform3f(glGetUniformLocation(prog_tex, "camPos"), player_position.x, player_position.y, player_position.z);
 
   //set texture unit
   glActiveTexture(GL_TEXTURE0);
