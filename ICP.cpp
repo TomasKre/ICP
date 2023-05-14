@@ -244,7 +244,7 @@ int main()
       );
 
       // set light pos in above player for shaders
-      glUniform3f(glGetUniformLocation(prog_h, "lightPos"), player_position.x, player_position.y + 2.0f, player_position.z);
+      glUniform3f(glGetUniformLocation(prog_h, "lightPos"), player_position.x/2, player_position.y/2 + 1.0f, player_position.z/2);
       // set camera pos for shaders
       glUniform3f(glGetUniformLocation(prog_h, "camPos"), player_position.x, player_position.y, player_position.z);
 
@@ -1054,7 +1054,7 @@ void draw_textured(glm::mat4 m_m, glm::mat4 v_m, glm::mat4 projectionMatrix){
   // set light color for shader
   glUniform4f(glGetUniformLocation(prog_tex, "lightColor"), 1.0f, 0.5f, 0.5f, 1.0f);
   // set light pos in above player for shaders
-  glUniform3f(glGetUniformLocation(prog_tex, "lightPos"), player_position.x, player_position.y + 2.0f, player_position.z);
+  glUniform3f(glGetUniformLocation(prog_tex, "lightPos"), player_position.x/2, player_position.y/2 + 1.0f, player_position.z/2);
   // set camera pos for shaders
   glUniform3f(glGetUniformLocation(prog_tex, "camPos"), player_position.x, player_position.y, player_position.z);
 
