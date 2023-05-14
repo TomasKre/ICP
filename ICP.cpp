@@ -49,12 +49,14 @@ void draw_textured(glm::mat4 m_m, glm::mat4 v_m, glm::mat4 projectionMatrix);
 struct vertex {
   glm::vec3 position; // Vertex pos
   glm::vec3 color; // Color
+  glm::vec3 normal; // Normal
 };
 
 // vertex with texture
 struct tex_vertex {
   glm::vec3 position;
   glm::vec2 texcoord;
+  //glm::vec3 normal;
 };
 
 std::vector<tex_vertex> tex_vertices[4];
@@ -207,15 +209,19 @@ int main()
 
   while (!glfwWindowShouldClose(globals.window)) {
 
-    glm::mat4 projectionMatrix = glm::perspective(
-      glm::radians(globals.fov), // The vertical Field of View, in radians: the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
-      ratio,			     // Aspect Ratio. Depends on the size of your window.
-      0.1f,                // Near clipping plane. Keep as big as possible, or you'll get precision issues.
-      20000.0f              // Far clipping plane. Keep as little as possible.
-    );
+      glm::mat4 projectionMatrix = glm::perspective(
+          glm::radians(globals.fov), // The vertical Field of View, in radians: the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
+          ratio,			     // Aspect Ratio. Depends on the size of your window.
+          0.1f,                // Near clipping plane. Keep as big as possible, or you'll get precision issues.
+          20000.0f              // Far clipping plane. Keep as little as possible.
+      );
 
-    //set uniform for shaders - projection matrix
-    glUniformMatrix4fv(glGetUniformLocation(prog_h, "uP_m"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+      //set uniform for shaders - projection matrix
+      glUniformMatrix4fv(glGetUniformLocation(prog_h, "uP_m"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+
+      // set light color for shader
+      glUniform4f(glGetUniformLocation(prog_h, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f);
+
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -233,9 +239,15 @@ int main()
 
       // View matrix
       glm::mat4 v_m = glm::lookAt(player_position, //position of camera
-        glm::vec3(player_position + looking_position), //where to look
-        up  //UP direction
+          glm::vec3(player_position + looking_position), //where to look
+          up  //UP direction
       );
+
+      // set light pos in above player for shaders
+      glUniform3f(glGetUniformLocation(prog_h, "lightPos"), player_position.x, player_position.y + 2.0f, player_position.z);
+      // set camera pos for shaders
+      glUniform3f(glGetUniformLocation(prog_h, "camPos"), player_position.x, player_position.y, player_position.z);
+
       // pøedání do shaderu
       glUniformMatrix4fv(glGetUniformLocation(prog_h, "uV_m"), 1, GL_FALSE, glm::value_ptr(v_m));
 
@@ -692,6 +704,11 @@ void va_setup(int index) {
   // Set end enable Vertex Attribute 1 = Texture Coordinates
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, color)));
   glEnableVertexAttribArray(1);
+
+  // TEST
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0 + offsetof(vertex, normal)));
+  glEnableVertexAttribArray(2);
+
   // Bind VBO and VAO to 0 to prevent unintended modification
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
@@ -748,6 +765,11 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
       vertexIndices.push_back(vertexIndex[0]);
       vertexIndices.push_back(vertexIndex[1]);
       vertexIndices.push_back(vertexIndex[2]);
+
+      normalIndices.push_back(normalIndex[0]);
+      normalIndices.push_back(normalIndex[1]);
+      normalIndices.push_back(normalIndex[2]);
+
       for (int j = 0; j < 6; j++)
       {
         indices.push_back(index + j);
@@ -762,7 +784,11 @@ bool loadOBJ(const char* path, std::vector <vertex>& out_vertices, std::vector <
   for (unsigned int u = 0; u < vertexIndices.size(); u++) {
     unsigned int vertexIndex = vertexIndices[u];
     glm::vec3 vertex = coords + (temp_vertices[vertexIndex - 1] * scale);
-    out_vertices.push_back({ vertex, color });
+
+    unsigned int normalIndex = normalIndices[u];
+    glm::vec3 normal = temp_normals[normalIndex - 1];
+
+    out_vertices.push_back({ vertex, color, normal });
   }
 
   fclose(file);
